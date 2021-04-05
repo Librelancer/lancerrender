@@ -17,6 +17,7 @@ add_custom_command(
 
 shader(monkeyshader glsl)
 
+
 add_executable(testapp
     main.c
     libs.c

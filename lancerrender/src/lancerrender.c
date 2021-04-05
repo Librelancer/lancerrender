@@ -86,7 +86,7 @@ static void CheckExtensions(LR_Context *ctx)
     glGetIntegerv(GL_NUM_EXTENSIONS, &n);
     int xAni = 1;
     for(i = 0; i < n; i++) {
-        const char *ext = glGetStringi(GL_EXTENSIONS, i);
+        const char *ext = (const char *)glGetStringi(GL_EXTENSIONS, i);
         if(xAni && !strcmp(ext, "GL_EXT_texture_filter_anisotropic")) {
             xAni = 0;
             ctx->anisotropy = 1;
@@ -292,6 +292,7 @@ static GLenum GLPrim(LR_Context *ctx, LRPRIMTYPE ptype)
         return GL_LINES;
     
     LR_CriticalErrorFunc(ctx, "Invalid primitive type");
+    return 0; //suppress warning
 }
 
 static void LR_FlushDraws(LR_Context *ctx)
@@ -461,7 +462,7 @@ LREXPORT void LR_Draw(
         uint64_t reg = ((uint64_t)zval) & (1UL << 36); //max Z is (1 << 36) away
         int fracBits = (1 << 23); //32-bit float can have 23 bits of precision.
         int frac = ((int)zval * fracBits) & fracBits;
-        key = (uint64_t)reg << 59 | (uint64_t)fracBits;
+        key = (uint64_t)reg << 59 | (uint64_t)frac;
     } else {
         //opaque drawn first by setting highest bit in key
         //sort by material

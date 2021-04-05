@@ -256,17 +256,18 @@ static int has_ext(const char *ext) {
 
     return 0;
 }
-int GLAD_GL_VERSION_1_0 = 0;
-int GLAD_GL_VERSION_1_1 = 0;
-int GLAD_GL_VERSION_1_2 = 0;
-int GLAD_GL_VERSION_1_3 = 0;
-int GLAD_GL_VERSION_1_4 = 0;
-int GLAD_GL_VERSION_1_5 = 0;
-int GLAD_GL_VERSION_2_0 = 0;
-int GLAD_GL_VERSION_2_1 = 0;
-int GLAD_GL_VERSION_3_0 = 0;
-int GLAD_GL_VERSION_3_1 = 0;
-int GLAD_GL_VERSION_3_2 = 0;
+//PATCH: Force Glad to attempt to load all versions.
+int GLAD_GL_VERSION_1_0 = 1;
+int GLAD_GL_VERSION_1_1 = 1;
+int GLAD_GL_VERSION_1_2 = 1;
+int GLAD_GL_VERSION_1_3 = 1;
+int GLAD_GL_VERSION_1_4 = 1;
+int GLAD_GL_VERSION_1_5 = 1;
+int GLAD_GL_VERSION_2_0 = 1;
+int GLAD_GL_VERSION_2_1 = 1;
+int GLAD_GL_VERSION_3_0 = 1;
+int GLAD_GL_VERSION_3_1 = 1;
+int GLAD_GL_VERSION_3_2 = 1;
 PFNGLACTIVETEXTUREPROC glad_glActiveTexture = NULL;
 PFNGLATTACHSHADERPROC glad_glAttachShader = NULL;
 PFNGLBEGINCONDITIONALRENDERPROC glad_glBeginConditionalRender = NULL;
@@ -980,22 +981,7 @@ static void find_coreGL(void) {
 #endif
 
     GLVersion.major = major; GLVersion.minor = minor;
-    max_loaded_major = major; max_loaded_minor = minor;
-	GLAD_GL_VERSION_1_0 = (major == 1 && minor >= 0) || major > 1;
-	GLAD_GL_VERSION_1_1 = (major == 1 && minor >= 1) || major > 1;
-	GLAD_GL_VERSION_1_2 = (major == 1 && minor >= 2) || major > 1;
-	GLAD_GL_VERSION_1_3 = (major == 1 && minor >= 3) || major > 1;
-	GLAD_GL_VERSION_1_4 = (major == 1 && minor >= 4) || major > 1;
-	GLAD_GL_VERSION_1_5 = (major == 1 && minor >= 5) || major > 1;
-	GLAD_GL_VERSION_2_0 = (major == 2 && minor >= 0) || major > 2;
-	GLAD_GL_VERSION_2_1 = (major == 2 && minor >= 1) || major > 2;
-	GLAD_GL_VERSION_3_0 = (major == 3 && minor >= 0) || major > 3;
-	GLAD_GL_VERSION_3_1 = (major == 3 && minor >= 1) || major > 3;
-	GLAD_GL_VERSION_3_2 = (major == 3 && minor >= 2) || major > 3;
-	if (GLVersion.major > 3 || (GLVersion.major >= 3 && GLVersion.minor >= 2)) {
-		max_loaded_major = 3;
-		max_loaded_minor = 2;
-	}
+    max_loaded_major = 3; max_loaded_minor = 2;
 }
 
 int gladLoadGLLoader(GLADloadproc load) {

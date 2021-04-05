@@ -32,12 +32,12 @@ static BuiltShaderFile* ReadFile(SDL_RWops *rw)
     if(magic != 0xABCDABCD) return NULL;
     if(!rw->read(rw, &compsize, 4, 1)) return NULL;
     if(!rw->read(rw, &decompsize, 4, 1)) return NULL;
-    char *indata = malloc(compsize);
+    unsigned char *indata = malloc(compsize);
     if(!rw->read(rw, indata, compsize, 1)) {
         free(indata);
         return NULL;
     }
-    char *decomp = malloc(decompsize);
+    unsigned char *decomp = malloc(decompsize);
     mz_ulong decompResult = decompsize;
     int res = uncompress(decomp, &decompResult, indata, compsize);
     free(indata);
@@ -47,7 +47,7 @@ static BuiltShaderFile* ReadFile(SDL_RWops *rw)
         return NULL;
     }
     BuiltShaderFile *shf = malloc(sizeof(BuiltShaderFile));
-    char *dcptr = decomp;
+    unsigned char *dcptr = decomp;
     #define READ_INT(output) do { \
         output = *(uint32_t*)dcptr; \
         dcptr += 4; \

@@ -29,6 +29,7 @@ BlockAlloc *blockalloc_Init(int sizeOfObject, int maxAddress)
     block->block_head = 0;
     block->allocOffset = 8; //aligned non-zero start
     block->failreason = bafail_noerror;
+    return block;
 }
 
 LR_Handle blockalloc_Alloc(BlockAlloc *block)
@@ -67,14 +68,14 @@ bafail blockalloc_FailReason(BlockAlloc *block)
 
 void *blockalloc_HandleToPtr(BlockAlloc *block, LR_Handle handle)
 {
-     if(handle < 1 || handle > (block->dataSize - block->sizeOfObject))
+     if(handle < 1 || handle > (LR_Handle)(block->dataSize - block->sizeOfObject))
         return NULL; //Invalid pointer
     return (void*)(&((uint8_t*)block->data)[handle]);
 }
 
 int blockalloc_Free(BlockAlloc *block, LR_Handle handle)
 {
-    if(handle < 1 || handle > (block->dataSize - block->sizeOfObject))
+    if(handle < 1 || handle > (LR_Handle)(block->dataSize - block->sizeOfObject))
         return 0; //Invalid pointer
     LR_Handle blk = block->block_head;
     while(blk) {
