@@ -19,7 +19,8 @@
 
 const char* flattenBlocks[] = {
     "vs_Material",
-    "fs_Material"
+    "fs_Material",
+    "Lighting",
 };
 
 static int DoFlatten(const char *name) {
@@ -135,6 +136,7 @@ int CompilerMain(int argc, char **argv)
     int processingArgs = 1;
     int showHelp = 0;
     int verbose = 0;
+    int dump = 0;
     for(int i = 1; i < argc; i++) {
         if(processingArgs && argv[i][0] == '-') {
             if(argv[i][1] == '-') {
@@ -143,7 +145,12 @@ int CompilerMain(int argc, char **argv)
                     continue;
                 }
                 if(!strcmp(argv[i], "--verbose")) {
-                    showHelp = 1;
+                    verbose = 1;
+                    continue;
+                }
+                if(!strcmp(argv[i], "--dump")) {
+                    verbose = 1;
+                    dump = 1;
                     continue;
                 }
                 if(!strcmp(argv[i], "--feature-list")) {
@@ -163,6 +170,10 @@ int CompilerMain(int argc, char **argv)
                         continue;
                     case 'v':
                         verbose = 1;
+                        continue;
+                    case 'd':
+                        verbose = 1;
+                        dump = 1;
                         continue;
                     case 'f':
                         if(argc <= (i + 1)) {
@@ -282,6 +293,9 @@ int CompilerMain(int argc, char **argv)
             fprintf(stderr, "vertex shader compilation failed\n");
             return 1;
         }
+        if(dump) {
+            std::cout << outGlsl << std::endl;
+        }
         zero.vertex = outGlsl;
         spv = std::vector<uint>();
         if(!CompileShader(shader.fragment_source.c_str(), filename.c_str(), "", false, spv)) {
@@ -291,6 +305,9 @@ int CompilerMain(int argc, char **argv)
         if(!ToGLSL(spv, outGlsl)) {
             fprintf(stderr, "fragment shader compilation failed\n");
             return 1;
+        }
+        if(dump) {
+            std::cout << outGlsl << std::endl;
         }
         zero.fragment = outGlsl;
         compiled.push_back(zero);

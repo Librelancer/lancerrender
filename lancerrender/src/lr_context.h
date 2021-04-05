@@ -22,9 +22,14 @@ typedef struct LR_Viewport {
 
 typedef struct LR_DrawCommand {
     uint64_t key;
-    LR_Handle material;
+    LR_Handle material; 
     LR_Geometry *geometry;
-    LR_Handle transform;
+    LR_Handle transform; 
+    uint64_t lightingHash;
+    LR_Handle lighting; 
+    LR_Handle objectData;
+    LR_Handle uniformBuffer; 
+    LR_Handle uniformBufferOffset;
     LRPRIMTYPE primitive;
     int baseVertex;
     int startIndex;
@@ -36,6 +41,11 @@ typedef struct LR_DrawCommand {
 #define DEPTHMODE_ALL (0)
 #define DEPTHMODE_NOWRITE (1)
 #define DEPTHMODE_NONE (2)
+
+typedef struct LR_LightingInfo {
+    int size;
+    int hash;
+} LR_LightingInfo;
 
 struct LR_Context {
     /* context info */
@@ -77,11 +87,22 @@ struct LR_Context {
     LR_DrawCommand *commands;
     int commandsCapacity;
     int commandPtr;
+    /* lighting */
+    LR_Handle lastLighting;
+    void *lightingInfo;
+    int lightingPtr;
+    int lightingSize;
 };
+
+
+
+#define LR_LightingInfoPtr(x) ((void*)((char*)(x) + sizeof(LR_LightingInfo)))
 
 #define FRAME_CHECK_VOID(name) do { if(!ctx->inframe) { LR_CriticalErrorFunc(ctx, #name " must call LR_BeginFrame"); return; } } while (0)
 #define FRAME_CHECK_RET(name, x) do { if(!ctx->inframe) { LR_CriticalErrorFunc(ctx, #name " must call LR_BeginFrame"); return (x); } } while (0)
 #define GL_OFFSET(x) ((void*)(uintptr_t)(x))
+
+int LR_GetLightingInfo(LR_Context *ctx, LR_Handle h, int *outSize, void **outData);
 
 /* defined in lr_sort.c */
 void LR_CmdSort(LR_Context *ctx);

@@ -17,7 +17,12 @@ struct LR_Shader {
     GLint posNormal;
     GLint pos_vsMaterial;
     GLint pos_fsMaterial;
-    int cameraVersion;   
+    GLint pos_Lighting;
+    int hash_fsMaterial;
+    int hash_vsMaterial;
+    int cameraVersion; 
+    int hash_Lighting;
+    int size_Lighting;  
     uint64_t currentTransform;
 };
 
@@ -54,4 +59,7 @@ void LR_Shader_SetSamplerIndex(LR_Context *ctx, LR_Shader *shader, const char *s
 LR_Shader* LR_ShaderCollection_GetShader(LR_Context *ctx, LR_ShaderCollection *col, LR_VertexDeclaration *decl, int caps);
 void LR_Shader_SetCamera(LR_Context *ctx, LR_Shader *shader);
 void LR_Shader_SetTransform(LR_Context *ctx, LR_Shader *shader, LR_Handle transform);
+void LR_Shader_SetFsMaterial(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size);
+void LR_Shader_SetVsMaterial(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size);
+void LR_Shader_SetLighting(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size);
 #endif

@@ -5,6 +5,7 @@
 #include "lr_texture.h"
 #include <stdlib.h>
 #include "lr_string.h"
+#include "lr_fnv1a.h"
 
 /* We use a magic number to know if a material has been freed or not, as blockalloc 
  * will overwrite the first int of a block when freed
@@ -35,6 +36,12 @@ struct INT_LR_Material_ {
     //textures
     Sampler samplers[LR_MAX_SAMPLERS];
     //material uniforms
+    int hashFsMaterial;
+    void *fsMaterialPtr;
+    int fsMaterialSize;
+    int hashVsMaterial;
+    void *vsMaterialPtr;
+    int vsMaterialSize;
 };
 
 LREXPORT LR_Handle LR_Material_Create(LR_Context *ctx)
@@ -65,6 +72,13 @@ LREXPORT void LR_Material_SetBlendMode(LR_Context *ctx, LR_Handle material, int 
     }
 }
 
+int LR_Material_IsTransparent(LR_Context *ctx, LR_Handle material)
+{
+    LR_Material *mat = FromHandle(ctx,material);
+    HANDLE_CHECK(ctx, mat, "LR_Material_IsTransparent");
+    return mat->transparent;
+}
+
 LREXPORT void LR_Material_SetShaders(LR_Context *ctx, LR_Handle material, LR_ShaderCollection *collection)
 {
     LR_Material *mat = FromHandle(ctx,material);
@@ -89,17 +103,46 @@ LREXPORT void LR_Material_SetSamplerTex(LR_Context *ctx, LR_Handle material, int
     mat->pimpl->samplers[index].texture = tex;
 }
 
+LREXPORT void LR_Material_SetFragmentParameters(LR_Context *ctx, LR_Handle material, void *data, int size)
+{
+    LR_Material *mat = FromHandle(ctx,material);
+    HANDLE_CHECK(ctx, mat, "LR_Material_SetFragmentParameters");
+    LR_AssertTrue(ctx, size % 16 == 0);
+    INT_LR_Material_ *p = mat->pimpl;
+    if(p->fsMaterialPtr) {
+        free(p->fsMaterialPtr);
+    }
+    p->hashVsMaterial = (int)fnv1a_32(data, size);
+    p->fsMaterialPtr = malloc(size);
+    p->fsMaterialSize = size;
+    memcpy(p->fsMaterialPtr, data, size);
+}
+
+LREXPORT void LR_Material_SetVertexParameters(LR_Context *ctx, LR_Handle material, void *data, int size)
+{
+    LR_Material *mat = FromHandle(ctx,material);
+    HANDLE_CHECK(ctx, mat, "LR_Material_SetVertexParameters");
+    LR_AssertTrue(ctx, size % 16 == 0);
+    INT_LR_Material_ *p = mat->pimpl;
+    if(p->vsMaterialPtr) {
+        free(p->vsMaterialPtr);
+    }
+    p->hashVsMaterial = (int)fnv1a_32(data, size);
+    p->vsMaterialPtr = malloc(size);
+    p->vsMaterialSize = size;
+    memcpy(p->vsMaterialPtr, data, size);
+}
+
 LREXPORT void LR_Material_Destroy(LR_Context *ctx, LR_Handle material)
 {
     HANDLE_CHECK(ctx, FromHandle(ctx, material), "LR_Material_Destroy");
-
     else blockalloc_Free(ctx->materials, material);
 }
 
 
-void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_Handle material, LR_Handle transform)
+void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_DrawCommand *cmd)
 {
-    LR_Material *mat = FromHandle(ctx, material);
+    LR_Material *mat = FromHandle(ctx, cmd->material);
     HANDLE_CHECK(ctx, mat, "LR_Material_Prepare");
     /* Fixed-function state */
     LR_SetCull(ctx, LRCULL_CCW);
@@ -132,14 +175,23 @@ void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_Handle 
         }
     }
     /* material uniforms */
-    
+    if(p->fsMaterialPtr) {
+        LR_Shader_SetFsMaterial(ctx, shader, p->hashFsMaterial, p->fsMaterialPtr, p->fsMaterialSize);
+    }
+    if(p->vsMaterialPtr) {
+        LR_Shader_SetVsMaterial(ctx, shader, p->hashVsMaterial, p->vsMaterialPtr, p->vsMaterialSize);
+    }
     /* do camera */
     LR_Shader_SetCamera(ctx, shader);
     /* do lighting */
-
+    int ltHash;
+    void *ltData;
+    int ltSize;
+    if((ltHash = LR_GetLightingInfo(ctx, cmd->lighting, &ltSize, &ltData))) {
+        LR_Shader_SetLighting(ctx, shader, ltHash, ltData, ltSize);
+    }
     /* transform */
-    LR_Shader_SetTransform(ctx, shader, transform);
-
+    LR_Shader_SetTransform(ctx, shader, cmd->transform);
     /* use program */
     LR_BindProgram(ctx, shader->programID);
 }

@@ -115,6 +115,19 @@ typedef struct LR_VertexElement {
     int offset;
 } LR_VertexElement;
 
+typedef struct LR_Draw2D {
+    LR_Texture *tex;
+    int x;
+    int y;
+    int width;
+    int height;
+    float u1;
+    float u2;
+    float v1;
+    float v2;
+    uint32_t color;
+} LR_Draw2D;
+
 #define LR_RGBA(r,g,b,a) (uint32_t)( \
     ((uint32_t)a & 0xFF) << 24 | \
     ((uint32_t)b & 0xFF) << 16 | \
@@ -179,6 +192,10 @@ LREXPORT void LR_ShaderCollection_Destroy(LR_Context *ctx, LR_ShaderCollection *
 LREXPORT LR_Handle LR_Material_Create(LR_Context *ctx);
 LREXPORT void LR_Material_SetBlendMode(LR_Context *ctx, LR_Handle material, int blendEnabled, LRBLEND srcblend, LRBLEND destblend);
 LREXPORT void LR_Material_SetShaders(LR_Context *ctx, LR_Handle material, LR_ShaderCollection *collection);
+LREXPORT void LR_Material_SetSamplerName(LR_Context *ctx, LR_Handle material, int index, const char *name);
+LREXPORT void LR_Material_SetSamplerTex(LR_Context *ctx, LR_Handle material, int index, LR_Texture *tex);
+LREXPORT void LR_Material_SetFragmentParameters(LR_Context *ctx, LR_Handle material, void *data, int size);
+LREXPORT void LR_Material_SetVertexParameters(LR_Context *ctx, LR_Handle material, void *data, int size);
 
 /* Frame */
 LREXPORT void LR_BeginFrame(LR_Context *ctx, int width, int height);
@@ -204,16 +221,20 @@ LREXPORT void LR_Draw(
     LR_Handle material,
     LR_Geometry *geometry,
     LR_Handle transform,
+    LR_Handle lighting,
     LRPRIMTYPE primitive,
+    float zval,
     int baseVertex,
     int startIndex,
     int indexCount
 );
+LREXPORT LR_Handle LR_SetLights(LR_Context *ctx, void *data, int size);
 /* 2D Drawing */
 LREXPORT void LR_2D_FillRectangle(LR_Context *ctx, int x, int y, int width, int height, uint32_t color);
 LREXPORT void LR_2D_FillRectangleColors(LR_Context *ctx, int x, int y, int width, int height, uint32_t tl, uint32_t tr, uint32_t bl, uint32_t br);
 LREXPORT void LR_2D_DrawImage(LR_Context *ctx, LR_Texture *tex, int x, int y, int width, int height, uint32_t color);
 LREXPORT void LR_2D_DrawLine(LR_Context *ctx, float x1, float y1, float x2, float y2, uint32_t color);
+LREXPORT void LR_2D_DrawMultiple(LR_Context *ctx, LR_Draw2D *draws, int drawCount);
 #ifdef __cplusplus
 }
 #endif

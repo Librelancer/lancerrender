@@ -3,6 +3,7 @@
 #include <string.h>
 #include "lr_errors.h"
 #include "lr_context.h"
+#include "lr_fnv1a.h"
 
 typedef struct LR_StreamingGeometry {
     //LR_Geometry members
@@ -76,20 +77,6 @@ static void ApplyVertexDeclaration(LR_Context *ctx, LR_VertexDeclaration *decl)
     }
 }
 
-#define FNV1_PRIME_32 16777619U
-#define FNV1_OFFSET_32 2166136261U
-static uint32_t fnv1a_32(const void *input, int len)
-{
-    const unsigned char *data = input;
-    const unsigned char *end = data + len;
-    uint32_t hash = FNV1_PRIME_32;
-    for (; data != end; ++data)
-    {
-        hash ^= *data;
-        hash *= FNV1_PRIME_32;
-    }
-    return hash;
-}
 
 LREXPORT LR_VertexDeclaration* LR_VertexDeclaration_Create(LR_Context *ctx, int stride, int elemCount, LR_VertexElement *elements)
 {

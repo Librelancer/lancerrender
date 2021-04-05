@@ -88,6 +88,7 @@ LREXPORT LR_Shader *LR_Shader_Create(LR_Context *ctx, const char *vertex_source,
     //material uniforms
     sh->pos_vsMaterial = glGetUniformLocation(sh->programID, "vs_Material");
     sh->pos_fsMaterial = glGetUniformLocation(sh->programID, "fs_Material");
+    sh->pos_Lighting = glGetUniformLocation(sh->programID, "Lighting");
     return sh;
 }
 
@@ -126,7 +127,7 @@ void LR_Shader_SetTransform(LR_Context *ctx, LR_Shader *shader, LR_Handle transf
     if(shader->currentTransform != id) {
         shader->currentTransform = id;
         if(shader->posWorld != -1) glUniformMatrix4fv(shader->posWorld, 1, GL_FALSE, (GLfloat*)&ctx->transforms[transform]);
-        if(shader->posNormal != -1) glUniformMatrix4fv(shader->posWorld, 1, GL_FALSE, (GLfloat*)&ctx->transforms[transform + 1]);
+        if(shader->posNormal != -1) glUniformMatrix4fv(shader->posNormal, 1, GL_FALSE, (GLfloat*)&ctx->transforms[transform + 1]);
     }
 }
 
@@ -194,6 +195,34 @@ LR_Shader* LR_ShaderCollection_GetShader(LR_Context *ctx, LR_ShaderCollection *c
             return vpair->capPairs[i].shader;
     }
     return vpair->defShader;
+}
+
+void LR_Shader_SetFsMaterial(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size) 
+{
+    if(sh->pos_fsMaterial == -1) return;
+    if(sh->hash_fsMaterial == hash) return;
+    sh->hash_fsMaterial = hash;
+    LR_BindProgram(ctx, sh->programID);
+    glUniform4fv(sh->pos_fsMaterial, (size / 16), (GLfloat*)data);
+}
+
+void LR_Shader_SetVsMaterial(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size)
+{
+    if(sh->pos_vsMaterial == -1) return;
+    if(sh->hash_vsMaterial == hash) return;
+    sh->hash_vsMaterial = hash;
+    LR_BindProgram(ctx, sh->programID);
+    glUniform4fv(sh->pos_vsMaterial, (size / 16), (GLfloat*)data);
+}
+
+void LR_Shader_SetLighting(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size)
+{
+    if(sh->pos_Lighting == -1) return;
+    if(sh->hash_Lighting == hash && sh->size_Lighting == size) return;
+    sh->hash_Lighting = hash;
+    sh->size_Lighting = size;
+    LR_BindProgram(ctx, sh->programID);
+    glUniform4fv(sh->pos_Lighting, (size / 16), (GLfloat*)data);
 }
 
 LREXPORT void LR_ShaderCollection_Destroy(LR_Context *ctx, LR_ShaderCollection *col)

@@ -10,10 +10,11 @@
 
 std::string FullPath(std::string file)
 {
-    char actualpath [1024];
     char *ptr;
-    ptr = realpath(file.c_str(), actualpath);
-    return std::string(ptr);
+    ptr = realpath(file.c_str(), NULL);
+    std::string res = std::string(ptr);
+    free(ptr);
+    return res;
 }
 
 std::string GetDirectory(const std::string& str)

@@ -2,6 +2,7 @@
 #include "lr_2d.h"
 #include "lr_material.h"
 #include "lr_geometry.h"
+#include "lr_fnv1a.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -109,12 +110,64 @@ LREXPORT LR_Context *LR_Init(int gles)
     ctx->cullMode = LRCULL_CCW;
     ctx->commandsCapacity = LR_INITIAL_CAPACITY;
     ctx->commands = (LR_DrawCommand*)malloc(LR_INITIAL_CAPACITY * sizeof(LR_DrawCommand));
+    ctx->lightingInfo = malloc(LR_INITIAL_CAPACITY * 64);
+    ctx->lightingSize = LR_INITIAL_CAPACITY * 64;
     ctx->transformsCapacity = LR_INITIAL_TRANSFORM_CAPACITY;
     ctx->transforms = (LR_Matrix4x4*)malloc(LR_INITIAL_TRANSFORM_CAPACITY * sizeof(LR_Matrix4x4));
     ctx->materials = blockalloc_Init(sizeof(LR_Material), LR_MAX_MATERIAL_ADDRESS);
     glDisable(GL_BLEND);
     return ctx;
 }
+
+#define OFFSET_PTR(type,ptr,offset)(  (type*)(&((char*)(ptr))[(offset)])  )
+#define ALIGN_VEC4(x) ((x) + (-(x) & 15))
+
+LREXPORT LR_Handle LR_SetLights(LR_Context *ctx, void *data, int size)
+{
+    FRAME_CHECK_RET("LR_SetLights", 0);
+    if(!size) return 0;
+    int hash = fnv1a_32(data, size);
+    int allocSize = ALIGN_VEC4(size);
+    if(ctx->lastLighting) {
+         LR_LightingInfo info = *OFFSET_PTR(LR_LightingInfo, ctx->lightingInfo, ctx->lastLighting - 1);
+         if(info.size == allocSize && info.hash == hash)
+            return ctx->lastLighting;
+    }
+    //ensure size
+    int reqSize = ctx->lightingPtr + allocSize + sizeof(LR_LightingInfo);
+    if(ctx->lightingSize < reqSize) {
+        int s2 = ctx->lightingSize;
+        while(s2 < reqSize) s2 *= 2;
+        ctx->lightingInfo = realloc(ctx->lightingInfo, s2);
+        ctx->lightingSize = s2;
+    }
+    //header
+    LR_LightingInfo *info = OFFSET_PTR(LR_LightingInfo, ctx->lightingInfo, ctx->lightingPtr);
+    info->size = allocSize;
+    info->hash = hash;
+    //copy data
+    memcpy(OFFSET_PTR(void, ctx->lightingInfo, ctx->lightingPtr + sizeof(LR_LightingInfo)), data, size);
+    //pad with zero
+    if(size < allocSize) {
+        for(int i = size; i < allocSize; i++) {
+            *OFFSET_PTR(char, ctx->lightingInfo, ctx->lightingPtr + sizeof(LR_LightingInfo) + i) = 0;
+        }
+    }
+    LR_Handle handle = ctx->lightingPtr + 1;
+    ctx->lightingPtr += allocSize + sizeof(LR_LightingInfo);
+    ctx->lastLighting = handle;
+    return handle;
+}
+
+int LR_GetLightingInfo(LR_Context *ctx, LR_Handle h, int *outSize, void **outData)
+{
+    if(!h) return 0;
+    LR_LightingInfo info = *OFFSET_PTR(LR_LightingInfo, ctx->lightingInfo, h - 1);
+    *outData = OFFSET_PTR(void, ctx->lightingInfo, h - 1 + sizeof(LR_LightingInfo));
+    *outSize = info.size;
+    return info.hash;
+}
+
 
 LREXPORT void LR_SetErrorCallback(LR_Context *ctx, LR_ErrorCallback cb)
 {
@@ -248,7 +301,7 @@ static void LR_FlushDraws(LR_Context *ctx)
     LR_CmdSort(ctx);
     for(int i = 0; i < ctx->commandPtr; i++) {
         LR_DrawCommand *cmd = &ctx->commands[i];
-        LR_Material_Prepare(ctx, cmd->geometry->decl, cmd->material, cmd->transform);
+        LR_Material_Prepare(ctx, cmd->geometry->decl, cmd);
         LR_BindVAO(ctx, cmd->geometry->vao);
         GL_CHECK(ctx, glDrawElementsBaseVertex(
             GLPrim(ctx, cmd->primitive),
@@ -321,6 +374,8 @@ LREXPORT void LR_BeginFrame(LR_Context *ctx, int width, int height)
     ctx->inframe = 1;
     ctx->currentFrame++;
     ctx->transformPtr = 0;
+    ctx->lightingPtr = 0;
+    ctx->lastLighting = 0;
 }
 
 LREXPORT void LR_PushViewport(LR_Context *ctx, int x, int y, int width, int height)
@@ -391,18 +446,33 @@ LREXPORT void LR_Draw(
     LR_Handle material,
     LR_Geometry *geometry,
     LR_Handle transform,
+    LR_Handle lighting,
     LRPRIMTYPE primitive,
+    float zval,
     int baseVertex,
     int startIndex,
     int indexCount
 )
 {
     FRAME_CHECK_VOID("LR_Draw");
+    uint64_t key = 0;
+    if(LR_Material_IsTransparent(ctx, material)) {
+        //convert Z to fixed point to allow it to be compared in int form
+        uint64_t reg = ((uint64_t)zval) & (1UL << 36); //max Z is (1 << 36) away
+        int fracBits = (1 << 23); //32-bit float can have 23 bits of precision.
+        int frac = ((int)zval * fracBits) & fracBits;
+        key = (uint64_t)reg << 59 | (uint64_t)fracBits;
+    } else {
+        //opaque drawn first by setting highest bit in key
+        //sort by material
+        key = (1UL << 63) | (uint64_t)material;
+    }
     LR_DrawCommand command = {
-        .key = 0,
+        .key = key,
         .material = material,
         .geometry = geometry,
         .transform = transform,
+        .lighting = lighting,
         .primitive = primitive,
         .baseVertex = baseVertex,
         .startIndex = startIndex,

@@ -34,6 +34,7 @@ endif()
 
 
 configure_file(texture.png texture.png COPYONLY)
+configure_file(monkey.png monkey.png COPYONLY)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)

@@ -205,6 +205,16 @@ LREXPORT void LR_2D_DrawImage(LR_Context *ctx, LR_Texture *tex, int x, int y, in
     BuildQuad(r2d, x, y, width, height, 0, 1, 0, 1, color);
 }
 
+LREXPORT void LR_2D_DrawMultiple(LR_Context *ctx, LR_Draw2D *draws, int drawCount)
+{
+    FRAME_CHECK_VOID("LR_2D_DrawMultiple");
+    LR_2D *r2d = ctx->ren2d;
+    for(int i = 0; i < drawCount; i++) {
+        CheckState(ctx, draws[i].tex, 4);
+        BuildQuad(r2d, draws[i].x, draws[i].y, draws[i].width, draws[i].height, draws[i].u1, draws[i].u2, draws[i].v1, draws[i].v2, draws[i].color);
+    }
+}
+
 LREXPORT void LR_2D_FillRectangle(LR_Context *ctx, int x, int y, int width, int height, uint32_t color)
 {
     FRAME_CHECK_VOID("LR_2D_FillRectangle");
