@@ -18,6 +18,8 @@ static void Sample_Exit();
 
 static int ltToggle = 1;
 
+#include "dds.h"
+
 
 int main(int argc, char **argv)
 {
@@ -74,6 +76,9 @@ int main(int argc, char **argv)
 LR_Context *lrctx;
 LR_Texture *texture;
 LR_Texture *monkey;
+LR_Texture *alphaPng;
+LR_Texture *alphaBgra;
+LR_Texture *dxt5tex;
 
 LR_Handle mat;
 LR_Geometry *geom;
@@ -97,18 +102,11 @@ typedef struct {
 
 Lighting ltMonkey;
 
-static void Sample_Init()
+static LR_Texture *LoadFileStb(const char *path)
 {
-    lrctx = LR_Init(gles);
-    texture = LR_Texture_Create(lrctx, 0);
+    LR_Texture *tx = LR_Texture_Create(lrctx, 0);
     int x,y,n;
-    unsigned char *data = stbi_load("texture.png", &x, &y, &n, 4);
-    LR_Texture_Allocate(lrctx, texture, LRTEXTYPE_2D, LRTEXFORMAT_COLOR, x, y);
-    LR_Texture_SetRectangle(lrctx, texture, 0, 0, x, y, data);
-    stbi_image_free(data);
-
-    monkey = LR_Texture_Create(lrctx, 0);
-    data = stbi_load("monkey.png", &x, &y, &n, 4);
+    unsigned char *data = stbi_load(path, &x, &y, &n, 4);
     //swap channels
     for(int i = 0; i < x * y; i++) {
         unsigned char *ptr = &data[i * 4];
@@ -116,9 +114,49 @@ static void Sample_Init()
         ptr[0] = ptr[2];
         ptr[2] = tmp;
     }
-    LR_Texture_Allocate(lrctx, monkey, LRTEXTYPE_2D, LRTEXFORMAT_COLOR, x, y);
-    LR_Texture_SetRectangle(lrctx, monkey, 0, 0, x, y, data);
+    LR_Texture_Allocate(lrctx, tx, LRTEXTYPE_2D, LRTEXFORMAT_COLOR, x, y);
+    LR_Texture_SetRectangle(lrctx, tx, 0, 0, x, y, data);
     stbi_image_free(data);
+    return tx;
+}
+
+static LR_Texture *LoadFileBgra5551(const char *path)
+{
+    LR_Texture *tx = LR_Texture_Create(lrctx, 0);
+    FILE *f = fopen(path, "rb");
+    int x, y;
+    fread(&x, sizeof(int), 1, f);
+    fread(&y, sizeof(int), 1, f);
+    void *data = malloc(x * y * 2);
+    fread(data, 2, x * y, f);
+    fclose(f);
+    LR_Texture_Allocate(lrctx, tx, LRTEXTYPE_2D, LRTEXFORMAT_BGRA5551, x, y);
+    LR_Texture_SetRectangle(lrctx, tx, 0, 0, x, y, data);
+    free(data);
+    return tx;
+}
+
+static LR_Texture *LoadFileDDS(const char *path)
+{
+    LR_Texture *tx = LR_Texture_Create(lrctx, 0);
+    SDL_RWops *file = SDL_RWFromFile(path, "rb");
+    DDSResult result = DDSLoad(lrctx, tx, file);
+    if(result < 0) {
+        printf("Error loading DDS file %s (%d)\n", path, result);
+        abort();
+    }
+    SDL_RWclose(file);
+    return tx;
+}
+
+static void Sample_Init()
+{
+    lrctx = LR_Init(gles);
+    texture = LoadFileStb("texture.png");
+    monkey = LoadFileStb("monkey.png");
+    alphaPng = LoadFileStb("alphatex.png");
+    alphaBgra = LoadFileBgra5551("alphatex.bgra5551");
+    dxt5tex = LoadFileDDS("dxt5.dds");
 
     LR_ShaderCollection *sh = LR_ShaderCollection_Create(lrctx);
     SDL_RWops* file = SDL_RWFromFile("monkeyshader.shader", "rb");
@@ -193,6 +231,11 @@ static void Sample_Loop()
     LR_2D_FillRectangle(lrctx, 100, 100, 100, 100, LR_RGBA(0xFF, 0, 0xFF, 0xFF));
     LR_2D_DrawImage(lrctx, texture, 200, 100, 0, 0, 0xFFFFFFFF);
     LR_2D_FillRectangle(lrctx, 100, 200, 100, 100, LR_RGBA(0x0, 0xFF, 0x00, 0xFF));
+    //alpha
+    LR_2D_DrawImage(lrctx, alphaPng, 400, 100, 0, 0, 0xFFFFFFFF);
+    LR_2D_DrawImage(lrctx, alphaBgra, 400, 200, 0, 0, 0xFFFFFFFF);
+    //dds
+    LR_2D_DrawImage(lrctx, dxt5tex, 0, 0, 0, 0, 0xFFFFFFFF);
     /* draw 3d */
     LR_Handle transform = LR_AllocTransform(lrctx, (LR_Matrix4x4*)world, (LR_Matrix4x4*)normal);
     ltMonkey.lightEnabled = ltToggle ? 1.0 : 0.0;

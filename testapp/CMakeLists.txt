@@ -20,6 +20,7 @@ shader(monkeyshader glsl)
 
 add_executable(testapp
     main.c
+    dds.c
     libs.c
     monkeyshader.shader
 )
@@ -36,6 +37,9 @@ endif()
 
 configure_file(texture.png texture.png COPYONLY)
 configure_file(monkey.png monkey.png COPYONLY)
+configure_file(alphatex.png alphatex.png COPYONLY)
+configure_file(alphatex.bgra5551 alphatex.bgra5551 COPYONLY)
+configure_file(dxt5.dds dxt5.dds COPYONLY)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)

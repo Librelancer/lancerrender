@@ -170,7 +170,14 @@ LREXPORT int LR_Texture_GetHeight(LR_Context *ctx, LR_Texture *tex);
  * Allocates texture memory on the GPU for Level 0.
  */
 LREXPORT void LR_Texture_Allocate(LR_Context *ctx, LR_Texture *tex, LRTEXTYPE type, LRTEXFORMAT format, int width, int height);
+/*
+ * Updates a region of a 2D texture. only works with uncompressed formats
+ */
 LREXPORT void LR_Texture_SetRectangle(LR_Context *ctx, LR_Texture *tex, int x, int y, int width, int height, void *data);
+/*
+ * Uploads a full mipmap to a texture
+ */
+LREXPORT void LR_Texture_UploadMipLevel(LR_Context *ctx, LR_Texture *tex, int level, int width, int height, void *data);
 /* 
  * Clears the GPU memory used by the texture
  * If it is used again, the callback set by LR_Texture_SetLoadCallback will be called with the texture

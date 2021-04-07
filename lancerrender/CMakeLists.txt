@@ -35,6 +35,7 @@ src/lr_sort.c
 src/lr_2d.c
 src/lr_shaderfile.c
 src/miniz.c
+src/s3tc.c
 
 ${SHADER_DIR}/shader2d_vertex.h
 ${SHADER_DIR}/shader2d_fragment.h

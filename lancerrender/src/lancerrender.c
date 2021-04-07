@@ -459,14 +459,14 @@ LREXPORT void LR_Draw(
     uint64_t key = 0;
     if(LR_Material_IsTransparent(ctx, material)) {
         //convert Z to fixed point to allow it to be compared in int form
-        uint64_t reg = ((uint64_t)zval) & (1UL << 36); //max Z is (1 << 36) away
+        uint64_t reg = ((uint64_t)zval) & (1ULL << 36); //max Z is (1 << 36) away
         int fracBits = (1 << 23); //32-bit float can have 23 bits of precision.
         int frac = ((int)zval * fracBits) & fracBits;
         key = (uint64_t)reg << 59 | (uint64_t)frac;
     } else {
         //opaque drawn first by setting highest bit in key
         //sort by material
-        key = (1UL << 63) | (uint64_t)material;
+        key = (1ULL << 63) | (uint64_t)material;
     }
     LR_DrawCommand command = {
         .key = key,
