@@ -109,7 +109,7 @@ LR_2D *LR_2D_Init(LR_Context *ctx)
     }
     LR_StreamingGeometry_SetIndices(ctx, r2d->geom, indices, MAX_INDEX);
     r2d->dot = LR_Texture_Create(ctx, 0);
-    LR_Texture_Allocate(ctx, r2d->dot, LRTEXTYPE_2D, LRTEXFORMAT_COLOR, 1, 1);
+    LR_Texture_Allocate(ctx, r2d->dot, LRTEXTYPE_2D, LRTEXFORMAT_BGRA8888, 1, 1);
     uint32_t whitePixel = 0xFFFFFFFF;
     LR_Texture_SetRectangle(ctx, r2d->dot, 0, 0, 1, 1, &whitePixel);
     //uniforms

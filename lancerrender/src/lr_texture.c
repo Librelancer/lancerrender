@@ -10,7 +10,7 @@ static GLenum internalFormats[LRTEXFORMAT_COUNT] = {
     GL_NONE, //INVALID
     GL_RGBA, //Color
     GL_RGB, //Bgr565
-    GL_RGB5_A1, //Bgra5551
+    GL_RGB5_A1, //Argb1555
     GL_RGBA4,  //Bgra4444
     GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, //Dxt1
     GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, //Dxt3
@@ -22,7 +22,7 @@ static GLenum glFormats[LRTEXFORMAT_COUNT] = {
     GL_NONE, //INVALID
     GL_BGRA, //Color
     GL_RGB, //Bgr565
-    GL_RGBA, //Bgra5551
+    GL_RGBA, //Argb1555
     GL_RGBA, //Bgra4444
     GL_NUM_COMPRESSED_TEXTURE_FORMATS, //Dxt1
     GL_NUM_COMPRESSED_TEXTURE_FORMATS, //Dxt3
@@ -34,7 +34,7 @@ static GLenum glTypes[LRTEXFORMAT_COUNT] = {
     GL_NONE, //INVALID
     GL_UNSIGNED_BYTE, //Color
     GL_UNSIGNED_SHORT_5_6_5, //Bgr565
-    GL_UNSIGNED_SHORT_5_5_5_1, //Bgra5551
+    GL_UNSIGNED_SHORT_5_5_5_1, //Argb1555
     GL_UNSIGNED_SHORT_4_4_4_4, //Bgra4444
     GL_UNSIGNED_BYTE, //Dxt1
     GL_UNSIGNED_BYTE, //Dxt3
@@ -170,8 +170,8 @@ static void ConvertImageData(
     void **outdata
 )
 {
-    if(texFormat == LRTEXFORMAT_BGRA5551) {
-        //convert 1_5_5_5_REV BGRA to 5_5_5_1 RGBA
+    if(texFormat == LRTEXFORMAT_ARGB1555) {
+        //convert 1_5_5_5_REV ARGB to 5_5_5_1 RGBA
         uint16_t *cv = malloc(sizeof(uint16_t) * width * height);
         uint16_t *src = (uint16_t*)data;
         for(int i = 0; i < (width * height); i++) {
@@ -275,6 +275,7 @@ void LR_Texture_SetFilter(LR_Context *ctx, LR_Texture *tex, LRTEXFILTER filter)
         tex->setAnisotropy != ctx->anisotropy) {
         LR_BindTexForModify(ctx, tex->target, tex->textureObj);
         tex->setFilter = filter;
+        tex->setAnisotropy = ctx->anisotropy;
         GLenum minfilter;
         GLenum magfilter;
         if(ctx->maxAnisotropy) {

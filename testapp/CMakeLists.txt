@@ -24,7 +24,6 @@ shader(billboard)
 
 add_executable(testapp
     main.c
-    dds.c
     libs.c
     monkeyshader.shader
     billboard.shader

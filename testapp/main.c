@@ -5,7 +5,7 @@
 #include <cglm/cglm.h>  
 #include "stb_image.h"
 #include <lancerrender_shaderfile.h>
-
+#include <lancerrender_img.h>
 #define SUZANNE_H_DEFINE_DATA
 #include "suzanne.h"
 
@@ -17,8 +17,6 @@ static void Sample_Loop();
 static void Sample_Exit();
 
 static int ltToggle = 1;
-
-#include "dds.h"
 
 
 int main(int argc, char **argv)
@@ -117,7 +115,7 @@ static LR_Texture *LoadFileStb(const char *path)
         ptr[0] = ptr[2];
         ptr[2] = tmp;
     }
-    LR_Texture_Allocate(lrctx, tx, LRTEXTYPE_2D, LRTEXFORMAT_COLOR, x, y);
+    LR_Texture_Allocate(lrctx, tx, LRTEXTYPE_2D, LRTEXFORMAT_BGRA8888, x, y);
     LR_Texture_SetRectangle(lrctx, tx, 0, 0, x, y, data);
     stbi_image_free(data);
     return tx;
@@ -133,7 +131,7 @@ static LR_Texture *LoadFileBgra5551(const char *path)
     void *data = malloc(x * y * 2);
     fread(data, 2, x * y, f);
     fclose(f);
-    LR_Texture_Allocate(lrctx, tx, LRTEXTYPE_2D, LRTEXFORMAT_BGRA5551, x, y);
+    LR_Texture_Allocate(lrctx, tx, LRTEXTYPE_2D, LRTEXFORMAT_ARGB1555, x, y);
     LR_Texture_SetRectangle(lrctx, tx, 0, 0, x, y, data);
     free(data);
     return tx;
@@ -143,7 +141,7 @@ static LR_Texture *LoadFileDDS(const char *path)
 {
     LR_Texture *tx = LR_Texture_Create(lrctx, 0);
     SDL_RWops *file = SDL_RWFromFile(path, "rb");
-    DDSResult result = DDSLoad(lrctx, tx, file);
+    LRDDSResult result = LR_DDS_Load(lrctx, tx, file);
     if(result < 0) {
         printf("Error loading DDS file %s (%d)\n", path, result);
         abort();
@@ -298,11 +296,11 @@ static void Sample_Loop()
     LR_Draw(lrctx, mat, geom, transform, lighting, LRPRIMTYPE_TRIANGLELIST, 0, baseVertex, startIndex, suzanneIndexCount);
 
     vec3 pos = { 3, 0, -2 };
-    AddBillboard(pos, sin(t), LR_RGBA(0xFF,0xFF,0x00,0xFA));
+    AddBillboard(pos, sin(t), LR_RGBA(0xFF,0xFF,0x00,0xBA));
     pos[0] = -2; pos[1] = 0.2; pos[2] = -1;
-    AddBillboard(pos, tan(t), LR_RGBA(0x00, 0x00, 0xFF, 0xFA));
+    AddBillboard(pos, tan(t), LR_RGBA(0x00, 0x00, 0xFF, 0xBA));
     pos[0] = -2; pos[1] = -0.5; pos[2] = -1.2;
-    AddBillboard(pos, cos(t), LR_RGBA(0xFF, 0x00, 0x00, 0xFA));
+    AddBillboard(pos, cos(t), LR_RGBA(0xFF, 0x00, 0x00, 0xBA));
     /* finish */
     LR_EndFrame(lrctx);
 }

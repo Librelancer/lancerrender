@@ -1,6 +1,6 @@
-#include "dds.h"
+#include <lancerrender_img.h>
 #include <stdint.h>
-
+#include "lr_errors.h"
 typedef enum {
     DXT1 = 0x31545844,
     DXT2 = 0x32545844,
@@ -61,6 +61,8 @@ typedef struct
 
 #define DX10 0x30315844
 
+#define MAX_MIPLEVELS (64)
+
 static LRTEXFORMAT GetFormat(DDS_HEADER header)
 {
     switch(header.ddspf.dwFourCC) {
@@ -79,7 +81,7 @@ static LRTEXFORMAT GetFormat(DDS_HEADER header)
         header.ddspf.dwGBitMask == 0x3e0 &&
         header.ddspf.dwBBitMask == 0x1f &&
         header.ddspf.dwABitMask == 0x8000)
-        return LRTEXFORMAT_BGRA5551;
+        return LRTEXFORMAT_ARGB1555;
     if (header.ddspf.dwFlags == 0x40 &&
         header.ddspf.dwRGBBitCount == 0x10 &&
         header.ddspf.dwFourCC == 0 &&
@@ -103,7 +105,7 @@ static LRTEXFORMAT GetFormat(DDS_HEADER header)
         (header.ddspf.dwRGBBitCount == 0x20 || header.ddspf.dwRGBBitCount == 0x18) &&
          header.ddspf.dwFourCC == 0 &&
          header.ddspf.dwABitMask != 0xc0000000)
-         return LRTEXFORMAT_COLOR;
+         return LRTEXFORMAT_BGRA8888;
     return -1;
 }
 
@@ -115,8 +117,8 @@ typedef struct {
 typedef struct {
     int loaded;
     int mipCount;
-    MipInfo mipInfo[64];
-    unsigned char* mipData[64];
+    MipInfo mipInfo[MAX_MIPLEVELS];
+    unsigned char* mipData[MAX_MIPLEVELS];
 } DDS_SURFACE;
 
 static void DestroySurface(DDS_SURFACE *sfc)
@@ -135,24 +137,32 @@ static int SurfaceByteCount(LRTEXFORMAT fmt, int width, int height)
         case LRTEXFORMAT_DXT3:
         case LRTEXFORMAT_DXT5:
             return ((width + 3) / 4) * ((height + 3) / 4) * 16;
-        case LRTEXFORMAT_BGRA5551:
+        case LRTEXFORMAT_ARGB1555:
         case LRTEXFORMAT_BGR565:
         case LRTEXFORMAT_BGRA4444:
             return width * height * 2;
-        case LRTEXFORMAT_COLOR:
+        case LRTEXFORMAT_BGRA8888:
             return width * height * 4;
     }
     return 0;
+}
+
+static int GetMipCount(DDS_HEADER *header)
+{
+    int mipCount = 1;
+    if(header->dwCaps & DDSCAPS_MIPMAP ||
+        header->dwFlags & DDSD_MIPMAPCOUNT)
+        mipCount = header->dwMipMapCount;
+    if(mipCount > MAX_MIPLEVELS) return -1;
+    if(mipCount <= 0) return -2;
+    return mipCount;
 }
 
 static int LoadSurface(SDL_RWops *rw, DDS_SURFACE *sfc, LRTEXFORMAT fmt, DDS_HEADER *header)
 {
     int w = header->dwWidth;
     int h = header->dwHeight;
-    int mipCount = 1;
-    if(header->dwCaps & DDSCAPS_MIPMAP ||
-        header->dwFlags & DDSD_MIPMAPCOUNT)
-        mipCount = header->dwMipMapCount;
+    int mipCount = GetMipCount(header);
     sfc->loaded = 1;
     sfc->mipCount = mipCount;
     int i = 0; 
@@ -161,7 +171,7 @@ static int LoadSurface(SDL_RWops *rw, DDS_SURFACE *sfc, LRTEXFORMAT fmt, DDS_HEA
         sfc->mipInfo[i].x = w;
         sfc->mipInfo[i].y = h;
         sfc->mipData[i] = malloc(len);
-        if(fmt == LRTEXFORMAT_COLOR && header->ddspf.dwRGBBitCount == 24) {
+        if(fmt == LRTEXFORMAT_BGRA8888 && header->ddspf.dwRGBBitCount == 24) {
             for(int j = 0; j < len; j += 4) {
                 if(!rw->read(rw, &sfc->mipData[i][j], 3, 1))
                     goto readerror;
@@ -172,13 +182,13 @@ static int LoadSurface(SDL_RWops *rw, DDS_SURFACE *sfc, LRTEXFORMAT fmt, DDS_HEA
                 goto readerror;
         }
         //if no alpha
-        if(fmt == LRTEXFORMAT_COLOR && header->ddspf.dwABitMask == 0) {
+        if(fmt == LRTEXFORMAT_BGRA8888 && header->ddspf.dwABitMask == 0) {
             for(int px = 0; px < len; px += 4) {
                 sfc->mipData[i][px + 3] = 255;
             }
         }
         //swap channels if needed
-        if(fmt == LRTEXFORMAT_COLOR && header->ddspf.dwRBitMask == 0) {
+        if(fmt == LRTEXFORMAT_BGRA8888 && header->ddspf.dwRBitMask == 0xff0000) {
             for(int px = 0; px < len; px += 4) {
                 unsigned char r = sfc->mipData[i][px];
                 unsigned char b = sfc->mipData[i][px + 2];
@@ -203,34 +213,40 @@ static int LoadSurface(SDL_RWops *rw, DDS_SURFACE *sfc, LRTEXFORMAT fmt, DDS_HEA
 
 
 
-DDSResult DDSLoad(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw)
+LRDDSResult LR_DDS_Load(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw)
 {
     uint32_t magic;
     DDS_HEADER header;
-    if(!rw->read(rw, &magic, 4, 1)) return DDSResult_UNEXPECTEDEOF;
+    if(!rw->read(rw, &magic, 4, 1)) return LRDDSResult_UNEXPECTEDEOF;
     if(magic != DDS_MAGIC) {
-        return DDSResult_BADMAGIC;
+        return LRDDSResult_INVALIDORCORRUPT;
     }
-    if(!rw->read(rw, &header, sizeof(DDS_HEADER), 1)) return DDSResult_UNEXPECTEDEOF;
+    if(!rw->read(rw, &header, sizeof(DDS_HEADER), 1)) return LRDDSResult_UNEXPECTEDEOF;
     if(header.ddspf.dwFourCC == DX10)
-        return DDSResult_UNSUPPORTEDFORMAT;
-    //Don't check header size
+        return LRDDSResult_UNSUPPORTEDFORMAT; //DX10-style DDS is not supported
+
+    //Don't check header size - not all .dds files write it correctly.
     //3D textures not supported
     if((header.dwFlags & DDSD_DEPTH) || (header.dwCaps2 && DDSCAPS2_VOLUME))
-        return DDSResult_UNSUPPORTEDTYPE;
+        return LRDDSResult_UNSUPPORTEDTYPE; //we don't support 3D textures.
     
     if(header.dwCaps2 & DDSCAPS2_CUBEMAP) {
-        return DDSResult_UNSUPPORTEDTYPE; //can't do cubemaps yet
+        return LRDDSResult_UNSUPPORTEDTYPE; //can't do cubemaps yet (TODO)
     }
 
     LRTEXFORMAT texFormat = GetFormat(header);
     if(texFormat == -1)
-        return DDSResult_UNSUPPORTEDPIXELFORMAT;
-    
+        return LRDDSResult_UNSUPPORTEDPIXELFORMAT;
+
+    int mipCount = GetMipCount(&header);
+
+    if(mipCount == -1) return LRDDSResult_TOOMANYLEVELS;
+    if(mipCount == -2) return LRDDSResult_INVALIDORCORRUPT;
+
     DDS_SURFACE sfc;
     memset(&sfc, 0, sizeof(DDS_SURFACE));
     if(!LoadSurface(rw, &sfc, texFormat, &header)) {
-        return DDSResult_UNEXPECTEDEOF;
+        return LRDDSResult_UNEXPECTEDEOF;
     }
 
     LR_Texture_Allocate(ctx, tex, LRTEXTYPE_2D, texFormat, sfc.mipInfo[0].x, sfc.mipInfo[0].y);
@@ -238,8 +254,5 @@ DDSResult DDSLoad(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw)
         LR_Texture_UploadMipLevel(ctx, tex, i, sfc.mipInfo[i].x, sfc.mipInfo[i].y, sfc.mipData[i]);
     }
     DestroySurface(&sfc);
-    return DDSResult_OK;
+    return LRDDSResult_OK;
 }
-
-
-

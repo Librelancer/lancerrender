@@ -35,6 +35,7 @@ src/lr_texture.c
 src/lr_sort.c
 src/lr_2d.c
 src/lr_shaderfile.c
+src/lr_dds.c
 src/miniz.c
 src/s3tc.c
 
