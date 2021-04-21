@@ -94,7 +94,7 @@ LR_2D *LR_2D_Init(LR_Context *ctx)
         { .slot = LRELEMENTSLOT_COLOR, .type = LRELEMENTTYPE_BYTE, .elements = 4, .normalized = 1, .offset = sizeof(float) * 5 }
     };
     r2d->decl = LR_VertexDeclaration_Create(ctx, sizeof(float) * 6, 4, elems);
-    r2d->geom = LR_StreamingGeometry_Create(ctx, r2d->decl, MAX_VERT);
+    r2d->geom = LR_StreamingGeometry_Create(ctx, r2d->decl, MAX_VERT, 0);
     uint16_t indices[MAX_INDEX];
     int iptr = 0;
     for(int i = 0; i < MAX_VERT; i += 4) {

@@ -19,6 +19,13 @@ struct LR_Geometry {
     GLuint vao;
 };
 
-uint64_t LR_VertexDeclaration_GetHash(LR_VertexDeclaration *decl);
+/* LR_VertexDeclaration */
+#define LR_MAXVERTEXELEMENTS (16)
+struct LR_VertexDeclaration {
+    uint64_t hash;
+    int stride;
+    int elemCount;
+    LR_VertexElement elements[LR_MAXVERTEXELEMENTS];
+};
 
 #endif

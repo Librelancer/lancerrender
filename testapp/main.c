@@ -80,6 +80,9 @@ LR_Texture *alphaPng;
 LR_Texture *alphaBgra;
 LR_Texture *dxt5tex;
 
+LR_Handle billboardMaterial;
+LR_DynamicDraw *billboards;
+
 LR_Handle mat;
 LR_Geometry *geom;
 LR_VertexDeclaration *decl;
@@ -186,15 +189,67 @@ static void Sample_Init()
     geom = LR_StaticGeometry_Create(lrctx, decl);
     LR_StaticGeometry_UploadVertices(lrctx, geom, suzanneVertices, suzanneVertexCount, &baseVertex);
     LR_StaticGeometry_UploadIndices(lrctx, geom, suzanneIndices, suzanneIndexCount, &startIndex);
+
+
+    LR_ShaderCollection *sh2 = LR_ShaderCollection_Create(lrctx);
+    SDL_RWops* file2 = SDL_RWFromFile("billboard.shader", "rb");
+    LR_ShaderCollection_DefaultShadersFromFile(lrctx, sh2, file2);
+    SDL_RWclose(file2);
+
+    billboardMaterial = LR_Material_Create(lrctx);
+    LR_Material_SetShaders(lrctx, billboardMaterial, sh2);
+    LR_Material_SetBlendMode(lrctx, billboardMaterial, 1, LRBLEND_SRCALPHA, LRBLEND_INVSRCALPHA);
+    LR_Material_SetSamplerName(lrctx, billboardMaterial, 1, "tex0");
+    LR_Material_SetCull(lrctx, billboardMaterial, LRCULL_NONE);
+
+    LR_VertexElement bbElem[] = {
+        { .slot = LRELEMENTSLOT_POSITION, .type = LRELEMENTTYPE_FLOAT, .elements = 3, .normalized = 0, .offset = 0 },
+        { .slot = LRELEMENTSLOT_DIMENSIONS, .type = LRELEMENTTYPE_FLOAT, .elements = 3, .normalized = 0, .offset = 3 * sizeof(float) },
+        { .slot = LRELEMENTSLOT_TEXTURE1, .type = LRELEMENTTYPE_FLOAT, .elements = 2, .normalized = 0, .offset = 6 * sizeof(float) },
+        { .slot = LRELEMENTSLOT_COLOR, .type = LRELEMENTTYPE_BYTE, .elements = 4, .normalized = 1, .offset = 8 * sizeof(float) }
+    };
+
+    LR_VertexDeclaration *bdecl = LR_VertexDeclaration_Create(lrctx, 9 * sizeof(float), 4, bbElem);
+
+    uint16_t idxTemplate[] = { 
+        0, 1, 2, 1, 3, 2
+    };
+
+    billboards = LR_DynamicDraw_Create(lrctx, bdecl, billboardMaterial, 4, 6, idxTemplate);
+    LR_DynamicDraw_SetSamplerIndex(lrctx, billboards, 1);
 }
 
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
 
 static float rot = 0;
 
+typedef struct {
+    float x; float y; float z;
+    float width; float height; float rot;
+    float u; float v; uint32_t color;
+} BillboardVertex;
+
+
+static void AddBillboard(vec3 center, float rotate, uint32_t color)
+{
+    #define BSIZE (2.0f)
+    #define V(_w,_h,_u,_v) { .x = center[0], .y = center[1], .z = center[2], .width = _w, .height = _h, .rot = rotate, .u = _u, .v = _v, .color = color }
+    BillboardVertex verts[] = {
+        V(BSIZE * -0.5f, BSIZE * -0.5f, 0, 0),
+        V(BSIZE * 0.5f, BSIZE * -0.5f, 1, 0),
+        V(BSIZE * -0.5f, BSIZE * 0.5f, 0, 1),
+        V(BSIZE * 0.5f, BSIZE * 0.5f, 1, 1)
+    };
+    #undef V
+    #undef BSIZE
+    LR_DynamicDraw_Draw(lrctx, billboards, verts, 4 * sizeof(float) * 9, texture, fabs(center[2]));
+}
+
+static float t;
 static void Sample_Loop()
 {
     int w, h;
+    t += 0.01;
     SDL_GetWindowSize(window, &w, &h);
     LR_BeginFrame(lrctx, w, h);
     LR_ClearAll(lrctx, 0.0, 0.0, 0.0, 1.0);
@@ -241,6 +296,13 @@ static void Sample_Loop()
     ltMonkey.lightEnabled = ltToggle ? 1.0 : 0.0;
     LR_Handle lighting = LR_SetLights(lrctx, &ltMonkey, ltToggle ? sizeof(Lighting) : sizeof(float));
     LR_Draw(lrctx, mat, geom, transform, lighting, LRPRIMTYPE_TRIANGLELIST, 0, baseVertex, startIndex, suzanneIndexCount);
+
+    vec3 pos = { 3, 0, -2 };
+    AddBillboard(pos, sin(t), LR_RGBA(0xFF,0xFF,0x00,0xFA));
+    pos[0] = -2; pos[1] = 0.2; pos[2] = -1;
+    AddBillboard(pos, tan(t), LR_RGBA(0x00, 0x00, 0xFF, 0xFA));
+    pos[0] = -2; pos[1] = -0.5; pos[2] = -1.2;
+    AddBillboard(pos, cos(t), LR_RGBA(0xFF, 0x00, 0x00, 0xFA));
     /* finish */
     LR_EndFrame(lrctx);
 }

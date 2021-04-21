@@ -8,14 +8,18 @@ set(CGLM_USE_TEST OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(cglm)
 
-add_custom_command(
-  OUTPUT monkeyshader.shader
-  COMMAND lrshadertool ${CMAKE_CURRENT_SOURCE_DIR}/monkeyshader.glsl monkeyshader.shader
-  DEPENDS monkeyshader.glsl
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
 
-shader(monkeyshader glsl)
+macro(shader name)
+    add_custom_command(
+        OUTPUT ${name}.shader
+        COMMAND lrshadertool ${CMAKE_CURRENT_SOURCE_DIR}/${name}.glsl ${name}.shader
+        DEPENDS ${name}.glsl
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endmacro()
+
+shader(monkeyshader)
+shader(billboard)
 
 
 add_executable(testapp
@@ -23,6 +27,7 @@ add_executable(testapp
     dds.c
     libs.c
     monkeyshader.shader
+    billboard.shader
 )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

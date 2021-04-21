@@ -26,6 +26,7 @@ add_library(lancerrender SHARED
 
 gl/glad.c
 src/lancerrender.c
+src/lr_dynamicdraw.c
 src/lr_geometry.c
 src/lr_shader.c
 src/lr_material.c

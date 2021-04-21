@@ -106,6 +106,7 @@ typedef struct LR_Shader LR_Shader;
 typedef struct LR_ShaderCollection LR_ShaderCollection;
 typedef struct LR_Material LR_Material;
 typedef struct LR_Texture LR_Texture;
+typedef struct LR_DynamicDraw LR_DynamicDraw;
 
 typedef struct LR_VertexElement {
     LRELEMENTSLOT slot;
@@ -146,10 +147,15 @@ LREXPORT void LR_Destroy(LR_Context *ctx);
 LREXPORT LR_VertexDeclaration* LR_VertexDeclaration_Create(LR_Context *ctx, int stride, int elemCount, LR_VertexElement *elements);
 LREXPORT void LR_VertexDeclaration_Free(LR_Context *ctx, LR_VertexDeclaration *decl);
 
-LREXPORT LR_Geometry *LR_StreamingGeometry_Create(LR_Context *ctx, LR_VertexDeclaration *decl, int size);
-LREXPORT void LR_StreamingGeometry_SetIndices(LR_Context *ctx, LR_Geometry *geo, unsigned short *indices, int size);
+LREXPORT LR_Geometry *LR_StreamingGeometry_Create(LR_Context *ctx, LR_VertexDeclaration *decl, int size, int idxSize);
+LREXPORT void LR_StreamingGeometry_SetIndices(LR_Context *ctx, LR_Geometry *geo, uint16_t *indices, int size);
 LREXPORT void* LR_StreamingGeometry_Begin(LR_Context *ctx, LR_Geometry *geo);
+LREXPORT void* LR_StreamingGeometry_Resize(LR_Context *ctx, LR_Geometry *geo, int newSize);
 LREXPORT void LR_StreamingGeometry_Finish(LR_Context *ctx, LR_Geometry *geo, int count);
+
+LREXPORT uint16_t* LR_StreamingGeometry_BeginIndices(LR_Context *ctx, LR_Geometry *geo);
+LREXPORT uint16_t* LR_StreamingGeometry_ResizeIndices(LR_Context *ctx, LR_Geometry *geo, int newSize);
+LREXPORT void LR_StreamingGeometry_FinishIndices(LR_Context *ctx, LR_Geometry *geo, int count);
 
 LREXPORT LR_Geometry *LR_StaticGeometry_Create(LR_Context *ctx, LR_VertexDeclaration *decl);
 LREXPORT void LR_StaticGeometry_UploadVertices(LR_Context *ctx, LR_Geometry *geo, void *data, int size, int *out_baseVertex);
@@ -199,11 +205,19 @@ LREXPORT void LR_ShaderCollection_Destroy(LR_Context *ctx, LR_ShaderCollection *
 LREXPORT LR_Handle LR_Material_Create(LR_Context *ctx);
 LREXPORT void LR_Material_SetBlendMode(LR_Context *ctx, LR_Handle material, int blendEnabled, LRBLEND srcblend, LRBLEND destblend);
 LREXPORT void LR_Material_SetShaders(LR_Context *ctx, LR_Handle material, LR_ShaderCollection *collection);
+LREXPORT void LR_Material_SetCull(LR_Context *ctx, LR_Handle material, LRCULL cull);
 LREXPORT void LR_Material_SetSamplerName(LR_Context *ctx, LR_Handle material, int index, const char *name);
 LREXPORT void LR_Material_SetSamplerTex(LR_Context *ctx, LR_Handle material, int index, LR_Texture *tex);
 LREXPORT void LR_Material_SetFragmentParameters(LR_Context *ctx, LR_Handle material, void *data, int size);
 LREXPORT void LR_Material_SetVertexParameters(LR_Context *ctx, LR_Handle material, void *data, int size);
-
+LREXPORT void LR_Material_Free(LR_Context *ctx, LR_Handle handle);
+/*
+ * Temporary Materials
+ * These only last for one frame and are deleted at EndFrame
+ * These cannot be instantiated outside of Begin/End Frame
+ */
+LREXPORT LR_Handle LR_Material_CreateTemporary(LR_Context *ctx);
+LREXPORT LR_Handle LR_Material_CloneTemporary(LR_Context *ctx, LR_Handle src);
 /* Frame */
 LREXPORT void LR_BeginFrame(LR_Context *ctx, int width, int height);
 LREXPORT void LR_EndFrame(LR_Context *ctx);
@@ -223,6 +237,7 @@ LREXPORT void LR_Scissor(LR_Context *ctx, int x, int y, int width, int height);
 LREXPORT void LR_ClearScissor(LR_Context *ctx);
 /* Generic Drawing */
 LREXPORT LR_Handle LR_AllocTransform(LR_Context *ctx, LR_Matrix4x4 *world, LR_Matrix4x4 *normal);
+LREXPORT LR_Handle LR_SetLights(LR_Context *ctx, void *data, int size);
 LREXPORT void LR_Draw(
     LR_Context *ctx,
     LR_Handle material,
@@ -235,7 +250,18 @@ LREXPORT void LR_Draw(
     int startIndex,
     int indexCount
 );
-LREXPORT LR_Handle LR_SetLights(LR_Context *ctx, void *data, int size);
+/* Dynamic Drawing */
+LREXPORT LR_DynamicDraw *LR_DynamicDraw_Create(
+    LR_Context *ctx, 
+    LR_VertexDeclaration *vtx,
+    LR_Handle material,
+    int vertexCount, 
+    int indexCount, 
+    uint16_t *indexTemplate
+);
+LREXPORT void LR_DynamicDraw_SetSamplerIndex(LR_Context *ctx, LR_DynamicDraw *dd, int index);
+LREXPORT void LR_DynamicDraw_Draw(LR_Context *ctx, LR_DynamicDraw *dd, void *vertexData, int vertexDataSize, LR_Texture *tex, float zVal);
+LREXPORT void LR_DynamicDraw_Destroy(LR_Context *ctx, LR_DynamicDraw *dd);
 /* 2D Drawing */
 LREXPORT void LR_2D_FillRectangle(LR_Context *ctx, int x, int y, int width, int height, uint32_t color);
 LREXPORT void LR_2D_FillRectangleColors(LR_Context *ctx, int x, int y, int width, int height, uint32_t tl, uint32_t tr, uint32_t bl, uint32_t br);

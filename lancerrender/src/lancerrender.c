@@ -3,6 +3,7 @@
 #include "lr_material.h"
 #include "lr_geometry.h"
 #include "lr_fnv1a.h"
+#include "lr_dynamicdraw.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -67,14 +68,18 @@ void LR_SetDepthMode(LR_Context *ctx, int depthMode)
         switch(depthMode) {
             case DEPTHMODE_NONE:
                 glDisable(GL_DEPTH_TEST);
+                glDepthMask(GL_TRUE);
+                ctx->depthWrite = 1;
                 break;
             case DEPTHMODE_NOWRITE:
                 glEnable(GL_DEPTH_TEST);
                 glDepthMask(GL_FALSE);
+                ctx->depthWrite = 0;
                 break;
             default:
                 glEnable(GL_DEPTH_TEST);
                 glDepthMask(GL_TRUE);
+                ctx->depthWrite = 1;
                 break;
         }
     }
@@ -108,12 +113,12 @@ LREXPORT LR_Context *LR_Init(int gles)
     CheckExtensions(ctx);
     ctx->ren2d = LR_2D_Init(ctx);
     ctx->cullMode = LRCULL_CCW;
-    ctx->commandsCapacity = LR_INITIAL_CAPACITY;
-    ctx->commands = (LR_DrawCommand*)malloc(LR_INITIAL_CAPACITY * sizeof(LR_DrawCommand));
+    ctx->depthWrite = 1;
+    LRVEC_INIT(&ctx->commands, LR_DrawCommand, LR_INITIAL_CAPACITY);
+    LRVEC_INIT(&ctx->transforms, LR_Matrix4x4, LR_INITIAL_TRANSFORM_CAPACITY);
+    LRVEC_INIT(&ctx->tempMaterials, LR_Handle, 16);
     ctx->lightingInfo = malloc(LR_INITIAL_CAPACITY * 64);
     ctx->lightingSize = LR_INITIAL_CAPACITY * 64;
-    ctx->transformsCapacity = LR_INITIAL_TRANSFORM_CAPACITY;
-    ctx->transforms = (LR_Matrix4x4*)malloc(LR_INITIAL_TRANSFORM_CAPACITY * sizeof(LR_Matrix4x4));
     ctx->materials = blockalloc_Init(sizeof(LR_Material), LR_MAX_MATERIAL_ADDRESS);
     glDisable(GL_BLEND);
     return ctx;
@@ -279,7 +284,9 @@ LREXPORT void LR_ClearAll(LR_Context *ctx, float red, float green, float blue, f
 {
     FRAME_CHECK_VOID("LR_ClearAll");
     glClearColor(red,green,blue,alpha);
+    if(!ctx->depthWrite) glDepthMask(GL_TRUE);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if(!ctx->depthWrite) glDepthMask(GL_FALSE);
 }
 
 static GLenum GLPrim(LR_Context *ctx, LRPRIMTYPE ptype)
@@ -298,21 +305,37 @@ static GLenum GLPrim(LR_Context *ctx, LRPRIMTYPE ptype)
 static void LR_FlushDraws(LR_Context *ctx)
 {
     LR_Flush2D(ctx);
-    if(!ctx->commandPtr) return;
+    if(!ctx->commands.currIdx) return;
     LR_CmdSort(ctx);
-    for(int i = 0; i < ctx->commandPtr; i++) {
-        LR_DrawCommand *cmd = &ctx->commands[i];
-        LR_Material_Prepare(ctx, cmd->geometry->decl, cmd);
-        LR_BindVAO(ctx, cmd->geometry->vao);
-        GL_CHECK(ctx, glDrawElementsBaseVertex(
-            GLPrim(ctx, cmd->primitive),
-            cmd->countIndex,
-            GL_UNSIGNED_SHORT,
-            GL_OFFSET(cmd->startIndex * 2),
-            cmd->baseVertex)
-        );
+    LR_DynamicDraw *lastDD = NULL; //Dynamic drawing
+    for(int i = 0; i < ctx->commands.currIdx; i++) {
+        LR_DrawCommand *cmd = &LRVEC_IDX(&ctx->commands, LR_DrawCommand, i);
+        if(cmd->geometry) {
+            if(lastDD) {
+                LR_DynamicDraw_Flush(ctx, lastDD);
+                lastDD = NULL;
+            }
+            LR_Material_Prepare(ctx, cmd->geometry->decl, cmd);
+            LR_BindVAO(ctx, cmd->geometry->vao);
+            GL_CHECK(ctx, glDrawElementsBaseVertex(
+                GLPrim(ctx, cmd->g.primitive),
+                cmd->g.countIndex,
+                GL_UNSIGNED_SHORT,
+                GL_OFFSET(cmd->g.startIndex * 2),
+                cmd->g.baseVertex)
+            );
+        } else {
+            if(lastDD && lastDD != cmd->d.dd) {
+                LR_DynamicDraw_Flush(ctx, lastDD);
+            }
+            lastDD = cmd->d.dd;
+            LR_DynamicDraw_Process(ctx, cmd);
+        }
     }
-    ctx->commandPtr = 0;
+    if(lastDD) {
+        LR_DynamicDraw_Flush(ctx, lastDD);
+    }
+    ctx->commands.currIdx = 0;
 }
 
 LREXPORT void LR_SetCamera(
@@ -334,34 +357,30 @@ LREXPORT void LR_SetCamera(
 static void LR_AddCommand(LR_Context *ctx, LR_DrawCommand *cmd)
 {
     LR_Flush2D(ctx);
-    if((ctx->commandPtr + 1) >= ctx->commandsCapacity) {
-        ctx->commandsCapacity *= 2;
-        ctx->commands = realloc((void*)ctx->commands, ctx->commandsCapacity * sizeof(LR_DrawCommand));
-    }
-    ctx->commands[ctx->commandPtr++] = *cmd;
+    LRVEC_ADD_VAL(ctx, &ctx->commands, LR_DrawCommand, *cmd);
 }
 
 static void LR_AddTransform(LR_Context *ctx, LR_Matrix4x4 *world, LR_Matrix4x4 *normal)
 {
-    if((ctx->transformPtr + 2) >= ctx->transformsCapacity) {
-        ctx->transformsCapacity *= 2;
-        ctx->transforms = realloc((void*)ctx->transforms, ctx->transformsCapacity * sizeof(LR_Matrix4x4));
-    }
-    ctx->transforms[ctx->transformPtr++] = *world;
-    ctx->transforms[ctx->transformPtr++] = *normal;
+    int ptr = ctx->transforms.currIdx;
+    LRVEC_ADD(ctx, &ctx->transforms, LR_Matrix4x4, 2);
+    LRVEC_IDX(&ctx->transforms, LR_Matrix4x4, ptr) = *world;
+    LRVEC_IDX(&ctx->transforms, LR_Matrix4x4, ptr + 1) = *normal;
 }
 
 LREXPORT void LR_ClearDepth(LR_Context *ctx)
 {
     FRAME_CHECK_VOID("LR_ClearDepth");
     LR_FlushDraws(ctx);
+    if(!ctx->depthWrite) glDepthMask(GL_TRUE);
     glClear(GL_DEPTH_BUFFER_BIT);
+    if(!ctx->depthWrite) glDepthMask(GL_FALSE);
 }
 
 LREXPORT LR_Handle LR_AllocTransform(LR_Context *ctx, LR_Matrix4x4 *world, LR_Matrix4x4 *normal)
 {
     FRAME_CHECK_RET("LR_AllocTransform", -1);
-    LR_Handle retval = (LR_Handle)ctx->transformPtr;
+    LR_Handle retval = (LR_Handle)ctx->transforms.currIdx;
     LR_AddTransform(ctx, world, normal);
     return retval;
 }
@@ -374,7 +393,7 @@ LREXPORT void LR_BeginFrame(LR_Context *ctx, int width, int height)
     GL_CHECK(ctx, glViewport(0, 0, width, height));
     ctx->inframe = 1;
     ctx->currentFrame++;
-    ctx->transformPtr = 0;
+    ctx->transforms.currIdx = 0;
     ctx->lightingPtr = 0;
     ctx->lastLighting = 0;
 }
@@ -439,6 +458,10 @@ LREXPORT void LR_EndFrame(LR_Context *ctx)
         ctx->scissorEnabled = 0;
         glDisable(GL_SCISSOR_TEST);
     }
+    for(int i = 0; i < ctx->tempMaterials.currIdx; i++) {
+        LR_Material_Free(ctx, LRVEC_IDX(&ctx->tempMaterials, LR_Handle, i));
+    }
+    ctx->tempMaterials.currIdx = 0;
     ctx->inframe = 0;
 }
 
@@ -458,11 +481,7 @@ LREXPORT void LR_Draw(
     FRAME_CHECK_VOID("LR_Draw");
     uint64_t key = 0;
     if(LR_Material_IsTransparent(ctx, material)) {
-        //convert Z to fixed point to allow it to be compared in int form
-        uint64_t reg = ((uint64_t)zval) & (1ULL << 36); //max Z is (1 << 36) away
-        int fracBits = (1 << 23); //32-bit float can have 23 bits of precision.
-        int frac = ((int)zval * fracBits) & fracBits;
-        key = (uint64_t)reg << 59 | (uint64_t)frac;
+        key = KEY_FROMZ(zval);
     } else {
         //opaque drawn first by setting highest bit in key
         //sort by material
@@ -470,14 +489,16 @@ LREXPORT void LR_Draw(
     }
     LR_DrawCommand command = {
         .key = key,
-        .material = material,
         .geometry = geometry,
-        .transform = transform,
-        .lighting = lighting,
-        .primitive = primitive,
-        .baseVertex = baseVertex,
-        .startIndex = startIndex,
-        .countIndex = indexCount
+        .material = material,
+        .g = {
+            .transform = transform,
+            .lighting = lighting,
+            .primitive = primitive,
+            .baseVertex = baseVertex,
+            .startIndex = startIndex,
+            .countIndex = indexCount
+        }
     };
     LR_AddCommand(ctx, &command);
 }
@@ -487,7 +508,7 @@ LREXPORT void LR_Destroy(LR_Context *ctx)
     LR_AssertTrue(ctx, !ctx->inframe);
     blockalloc_Destroy(ctx->materials);
     LR_2D_Destroy(ctx, ctx->ren2d);
-    free((void*)ctx->commands);
-    free((void*)ctx->transforms);
+    LRVEC_FREE(ctx, &ctx->commands, LR_DrawCommand);
+    LRVEC_FREE(ctx, &ctx->transforms, LR_Matrix4x4);
     free((void*)ctx);
 }

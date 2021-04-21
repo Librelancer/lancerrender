@@ -57,7 +57,41 @@ LREXPORT LR_Handle LR_Material_Create(LR_Context *ctx)
     mat->magic = LR_MATERIAL_MAGIC;
     mat->transparent = 0;
     mat->pimpl = malloc(sizeof(INT_LR_Material_));
+    mat->pimpl->cull = LRCULL_CCW;
     memset(mat->pimpl, 0, sizeof(INT_LR_Material_));
+    return handle;
+}
+
+LREXPORT LR_Handle LR_Material_CreateTemporary(LR_Context *ctx)
+{
+    FRAME_CHECK_RET("LR_Material_CreateTemporary", 0);
+    LR_Handle handle = LR_Material_Create(ctx);
+    LRVEC_ADD_VAL(ctx, &ctx->tempMaterials, LR_Handle, handle);
+    return handle;
+}
+
+LREXPORT LR_Handle LR_Material_CloneTemporary(LR_Context *ctx, LR_Handle src)
+{
+    FRAME_CHECK_RET("LR_Material_CloneTemporary", 0);
+    LR_Material *oldMat = FromHandle(ctx,src);
+    HANDLE_CHECK(ctx, oldMat, "LR_Material_CloneTemporary");
+    LR_Handle handle = LR_Material_Create(ctx);
+    LRVEC_ADD_VAL(ctx, &ctx->tempMaterials, LR_Handle, handle);
+    LR_Material *newMat = FromHandle(ctx, handle);
+    newMat->transparent = oldMat->transparent;
+    memcpy(newMat->pimpl, oldMat->pimpl, sizeof(INT_LR_Material_));
+    //Copy buffers
+    INT_LR_Material_ *op = oldMat->pimpl;
+    INT_LR_Material_ *np = newMat->pimpl;
+    if(op->vsMaterialPtr) {
+       np->vsMaterialPtr = malloc(op->vsMaterialSize);
+       memcpy(np->vsMaterialPtr, op->vsMaterialPtr, op->vsMaterialSize);
+    }
+    if(op->fsMaterialPtr) {
+        np->fsMaterialPtr = malloc(op->fsMaterialSize);
+        memcpy(np->fsMaterialPtr, op->fsMaterialPtr, op->fsMaterialSize);
+    }
+    //ret
     return handle;
 }
 
@@ -70,6 +104,13 @@ LREXPORT void LR_Material_SetBlendMode(LR_Context *ctx, LR_Handle material, int 
         mat->pimpl->srcblend = srcblend;
         mat->pimpl->destblend = destblend;
     }
+}
+
+LREXPORT void LR_Material_SetCull(LR_Context *ctx, LR_Handle material, LRCULL cull)
+{
+    LR_Material *mat = FromHandle(ctx,material);
+    HANDLE_CHECK(ctx, mat, "LR_Material_SetCull");
+    mat->pimpl->cull = cull;
 }
 
 int LR_Material_IsTransparent(LR_Context *ctx, LR_Handle material)
@@ -133,10 +174,19 @@ LREXPORT void LR_Material_SetVertexParameters(LR_Context *ctx, LR_Handle materia
     memcpy(p->vsMaterialPtr, data, size);
 }
 
-LREXPORT void LR_Material_Destroy(LR_Context *ctx, LR_Handle material)
+LREXPORT void LR_Material_Free(LR_Context *ctx, LR_Handle material)
 {
-    HANDLE_CHECK(ctx, FromHandle(ctx, material), "LR_Material_Destroy");
-    else blockalloc_Free(ctx->materials, material);
+    LR_Material *mat = FromHandle(ctx,material);
+    HANDLE_CHECK(ctx, mat, "LR_Material_Free");
+    INT_LR_Material_ *p = mat->pimpl;
+    if(p->vsMaterialPtr) {
+        free(p->vsMaterialPtr);
+    }
+    if(p->fsMaterialPtr) {
+        free(p->fsMaterialPtr);
+    }
+    free(p);
+    blockalloc_Free(ctx->materials, material);
 }
 
 
@@ -145,7 +195,7 @@ void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_DrawCom
     LR_Material *mat = FromHandle(ctx, cmd->material);
     HANDLE_CHECK(ctx, mat, "LR_Material_Prepare");
     /* Fixed-function state */
-    LR_SetCull(ctx, LRCULL_CCW);
+    LR_SetCull(ctx, mat->pimpl->cull);
     if(mat->transparent) {
         LR_SetBlendMode(ctx, 1, mat->pimpl->srcblend, mat->pimpl->destblend);
         LR_SetDepthMode(ctx, DEPTHMODE_NOWRITE);
@@ -184,14 +234,16 @@ void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_DrawCom
     /* do camera */
     LR_Shader_SetCamera(ctx, shader);
     /* do lighting */
-    int ltHash;
-    void *ltData;
-    int ltSize;
-    if((ltHash = LR_GetLightingInfo(ctx, cmd->lighting, &ltSize, &ltData))) {
-        LR_Shader_SetLighting(ctx, shader, ltHash, ltData, ltSize);
+    if(cmd->geometry) {
+        int ltHash;
+        void *ltData;
+        int ltSize;
+        if((ltHash = LR_GetLightingInfo(ctx, cmd->g.lighting, &ltSize, &ltData))) {
+            LR_Shader_SetLighting(ctx, shader, ltHash, ltData, ltSize);
+        }
+        /* transform */
+        LR_Shader_SetTransform(ctx, shader, cmd->g.transform);
     }
-    /* transform */
-    LR_Shader_SetTransform(ctx, shader, cmd->transform);
     /* use program */
     LR_BindProgram(ctx, shader->programID);
 }

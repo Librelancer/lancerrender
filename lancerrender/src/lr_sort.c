@@ -14,6 +14,6 @@ static int LR_CmpCommand(const void *a, const void *b)
 
 void LR_CmdSort(LR_Context *ctx)
 {
-    if(ctx->commandPtr <= 1) return;
-    qsort(ctx->commands, ctx->commandPtr, sizeof(LR_DrawCommand), LR_CmpCommand);
+    if(ctx->commands.currIdx <= 1) return;
+    qsort(ctx->commands.ptr, ctx->commands.currIdx, sizeof(LR_DrawCommand), LR_CmpCommand);
 }

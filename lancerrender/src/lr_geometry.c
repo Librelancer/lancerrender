@@ -11,12 +11,17 @@ typedef struct LR_StreamingGeometry {
     LR_VertexDeclaration *decl;
     GLuint vao;
     //private here
-    int size;
-    int streaming;
+    //vertex
+    int vertSize;
+    int vertStreaming;
     int stride;
     GLuint vertex_buffer;
+    void* vertCpubuffer;
+    //element
     GLuint element_buffer;
-    void* cpubuffer;
+    void *idxcpubuffer;
+    int idxSize;
+    int idxStreaming;
 } LR_StreamingGeometry;
 
 typedef struct LR_StaticGeometry {
@@ -32,21 +37,6 @@ typedef struct LR_StaticGeometry {
     int vertex_offset;
     int element_offset;
 } LR_StaticGeometry;
-
-
-/* LR_VertexDeclaration */
-#define LR_MAXVERTEXELEMENTS (16)
-struct LR_VertexDeclaration {
-    uint64_t hash;
-    int stride;
-    int elemCount;
-    LR_VertexElement elements[LR_MAXVERTEXELEMENTS];
-};
-
-uint64_t LR_VertexDeclaration_GetHash(LR_VertexDeclaration *decl)
-{
-    return decl->hash;
-}
 
 static GLenum GetElementType(LRELEMENTTYPE type)
 {
@@ -98,12 +88,13 @@ LREXPORT void LR_VertexDeclaration_Free(LR_Context *ctx, LR_VertexDeclaration *d
 }
 
 /* LR_StreamingGeometry */
-LREXPORT LR_Geometry *LR_StreamingGeometry_Create(LR_Context *ctx, LR_VertexDeclaration *decl, int size)
+LREXPORT LR_Geometry *LR_StreamingGeometry_Create(LR_Context *ctx, LR_VertexDeclaration *decl, int size, int idxSize)
 {
     LR_StreamingGeometry *g = (LR_StreamingGeometry*)malloc(sizeof(LR_StreamingGeometry));
     g->type = LRGTYPE_STREAMING;
-    g->size = size;
-    g->streaming = 0;
+    g->vertSize = size;
+    g->vertStreaming = 0;
+    g->idxStreaming = 0;
     g->stride = decl->stride;
     g->decl = decl;
     GL_CHECK(ctx, glGenVertexArrays(1, &g->vao));
@@ -112,12 +103,19 @@ LREXPORT LR_Geometry *LR_StreamingGeometry_Create(LR_Context *ctx, LR_VertexDecl
     glBindBuffer(GL_ARRAY_BUFFER, g->vertex_buffer);
     GL_CHECK(ctx, glBufferData(GL_ARRAY_BUFFER, size * g->stride, NULL, GL_STREAM_DRAW));
     ApplyVertexDeclaration(ctx, decl);
-    g->cpubuffer = malloc(size * g->stride);
-    g->element_buffer = 0;
+    g->vertCpubuffer = malloc(size * g->stride);
+    if(idxSize > 0) {
+        GL_CHECK(ctx, glGenBuffers(1, &g->element_buffer));
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g->element_buffer);
+        GL_CHECK(ctx, glBufferData(GL_ELEMENT_ARRAY_BUFFER, idxSize * 2, NULL, GL_STATIC_DRAW));
+        g->idxcpubuffer = malloc(idxSize * sizeof(uint16_t));
+    } else {
+        g->element_buffer = 0;
+    }
     return (LR_Geometry*)g;
 }
 
-LREXPORT void LR_StreamingGeometry_SetIndices(LR_Context *ctx, LR_Geometry *geo, unsigned short *indices, int size)
+LREXPORT void LR_StreamingGeometry_SetIndices(LR_Context *ctx, LR_Geometry *geo, uint16_t* indices, int size)
 {
     //type check
     LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
@@ -125,9 +123,9 @@ LREXPORT void LR_StreamingGeometry_SetIndices(LR_Context *ctx, LR_Geometry *geo,
     //set buffer if doesn't exist
     LR_AssertTrue(ctx, !g->element_buffer);
     LR_BindVAO(ctx, g->vao);
-    GL_CHECK(ctx, glGenBuffers(1, & g->element_buffer));
+    GL_CHECK(ctx, glGenBuffers(1, &g->element_buffer));
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g->element_buffer);
-    GL_CHECK(ctx, glBufferData(GL_ELEMENT_ARRAY_BUFFER, size * 2, indices, GL_STATIC_DRAW));
+    GL_CHECK(ctx, glBufferData(GL_ELEMENT_ARRAY_BUFFER, size * sizeof(uint16_t), indices, GL_STATIC_DRAW));
 }
 
 LREXPORT void* LR_StreamingGeometry_Begin(LR_Context *ctx, LR_Geometry *geo)
@@ -136,10 +134,67 @@ LREXPORT void* LR_StreamingGeometry_Begin(LR_Context *ctx, LR_Geometry *geo)
     LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
     LR_StreamingGeometry *g = (LR_StreamingGeometry*)geo;
     //stream
-    LR_AssertTrue(ctx, !g->streaming);
-    g->streaming = 1;
-    return g->cpubuffer;
+    LR_AssertTrue(ctx, !g->vertStreaming);
+    g->vertStreaming = 1;
+    return g->vertCpubuffer;
 }
+
+LREXPORT uint16_t* LR_StreamingGeometry_BeginIndices(LR_Context *ctx, LR_Geometry *geo)
+{
+    //type check
+    LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
+    LR_StreamingGeometry *g = (LR_StreamingGeometry*)geo;
+    //stream
+    LR_AssertTrue(ctx, !g->idxStreaming);
+    g->idxStreaming = 1;
+    return g->idxcpubuffer;
+}
+
+LREXPORT void* LR_StreamingGeometry_Resize(LR_Context *ctx, LR_Geometry *geo, int newSize)
+{
+    //type check
+    LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
+    LR_StreamingGeometry *g = (LR_StreamingGeometry*)geo;
+    //resize buffer
+    g->vertSize = newSize;
+    if(g->vertStreaming) {
+        g->vertCpubuffer = realloc(g->vertCpubuffer, newSize * g->stride);
+    } else {
+        free(g->vertCpubuffer);
+        g->vertCpubuffer = malloc(newSize * g->stride);
+    }
+    glDeleteBuffers(1, &g->vertex_buffer);
+    GL_CHECK(ctx, glGenBuffers(1, &g->vertex_buffer));
+    LR_BindVAO(ctx, g->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, g->vertex_buffer);
+    GL_CHECK(ctx, glBufferData(GL_ARRAY_BUFFER, newSize * g->stride, NULL, GL_STREAM_DRAW));
+    ApplyVertexDeclaration(ctx, g->decl);
+    if(g->vertStreaming) return g->vertCpubuffer;
+    else return NULL;
+}
+
+LREXPORT uint16_t* LR_StreamingGeometry_ResizeIndices(LR_Context *ctx, LR_Geometry *geo, int newSize)
+{
+    //type check
+    LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
+    LR_StreamingGeometry *g = (LR_StreamingGeometry*)geo;
+    //resize buffer
+    g->idxSize = newSize;
+    if(g->idxStreaming) {
+        g->idxcpubuffer = realloc(g->idxcpubuffer, newSize * sizeof(uint16_t));
+    } else {
+        free(g->idxcpubuffer);
+        g->idxcpubuffer = malloc(newSize * sizeof(uint16_t));
+    }
+    glDeleteBuffers(1, &g->element_buffer);
+    GL_CHECK(ctx, glGenBuffers(1, &g->element_buffer));
+    LR_BindVAO(ctx, g->vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g->vertex_buffer);
+    GL_CHECK(ctx, glBufferData(GL_ELEMENT_ARRAY_BUFFER, newSize * sizeof(uint16_t), NULL, GL_STREAM_DRAW));
+    if(g->idxStreaming) return g->idxcpubuffer;
+    else return NULL;
+}
+
 
 LREXPORT void LR_StreamingGeometry_Finish(LR_Context *ctx, LR_Geometry *geo, int count)
 {
@@ -148,10 +203,37 @@ LREXPORT void LR_StreamingGeometry_Finish(LR_Context *ctx, LR_Geometry *geo, int
     LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
     LR_StreamingGeometry *g = (LR_StreamingGeometry*)geo;
     //stream
-    LR_AssertTrue(ctx, g->streaming);
-    g->streaming = 0;
+    LR_AssertTrue(ctx, g->vertStreaming);
+    g->vertStreaming = 0;
     glBindBuffer(GL_ARRAY_BUFFER, g->vertex_buffer);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, count * g->stride, g->cpubuffer);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, count * g->stride, g->vertCpubuffer);
+}
+
+LREXPORT void LR_StreamingGeometry_FinishIndices(LR_Context *ctx, LR_Geometry *geo, int count)
+{
+    if(!count) return;
+    //type check
+    LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
+    LR_StreamingGeometry *g = (LR_StreamingGeometry*)geo;
+    //stream
+    LR_AssertTrue(ctx, g->idxStreaming);
+    g->idxStreaming = 0;
+    LR_BindVAO(ctx, g->vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g->element_buffer);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, count * sizeof(uint16_t), g->idxcpubuffer);
+}
+
+LREXPORT void LR_StreamingGeometry_Destroy(LR_Context *ctx, LR_Geometry *geo)
+{
+    LR_AssertTrue(ctx, geo->type == LRGTYPE_STREAMING);
+    LR_StreamingGeometry *g = (LR_StreamingGeometry*)geo;
+    if(ctx->bound_vao == g->vao) LR_BindVAO(ctx, 0);
+    glDeleteVertexArrays(1, &g->vao);
+    glDeleteBuffers(1, &g->element_buffer);
+    glDeleteBuffers(1, &g->vertex_buffer);
+    free(g->vertCpubuffer);
+    free(g->idxcpubuffer);
+    free(geo);
 }
 
 #define STATIC_INITIAL_CAPACITY (512)

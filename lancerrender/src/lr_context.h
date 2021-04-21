@@ -3,6 +3,7 @@
 #include <lancerrender.h>
 #include "lr_errors.h"
 #include "lr_blockalloc.h"
+#include "lr_vector.h"
 #include <stdint.h>
 #include <glad/glad.h>
 
@@ -19,11 +20,7 @@ typedef struct LR_Viewport {
     int height;
 } LR_Viewport;
 
-
-typedef struct LR_DrawCommand {
-    uint64_t key;
-    LR_Handle material; 
-    LR_Geometry *geometry;
+typedef struct {
     LR_Handle transform; 
     uint64_t lightingHash;
     LR_Handle lighting; 
@@ -34,6 +31,22 @@ typedef struct LR_DrawCommand {
     int baseVertex;
     int startIndex;
     int countIndex;
+} LR_Geometry_Command;
+
+typedef struct {
+    LR_DynamicDraw *dd;
+    LR_Texture *tex;
+    int baseVertex;
+} LR_Dynamic_Command;
+
+typedef struct LR_DrawCommand {
+    uint64_t key;
+    LR_Geometry *geometry;
+    LR_Handle material; 
+    union {
+        LR_Geometry_Command g;
+        LR_Dynamic_Command d;
+    };
 } LR_DrawCommand;
 
 #include "lr_2d.h"
@@ -65,8 +78,10 @@ struct LR_Context {
     GLuint bound_textures[LR_MAX_TEXTURES];
     int currentUnit;
     int depthMode;
+    int depthWrite;
     /* lr objects */
     BlockAlloc *materials;
+    LR_Vector tempMaterials;
     LR_2D *ren2d;
     /* camera */
     int vp_version;
@@ -80,13 +95,9 @@ struct LR_Context {
     LR_Viewport viewports[LR_MAX_VIEWPORTS];
     /* transforms */
     int currentFrame;
-    LR_Matrix4x4 *transforms;
-    int transformsCapacity;
-    int transformPtr;
+    LR_Vector transforms;
     /* commands */
-    LR_DrawCommand *commands;
-    int commandsCapacity;
-    int commandPtr;
+    LR_Vector commands;
     /* lighting */
     LR_Handle lastLighting;
     void *lightingInfo;
@@ -94,7 +105,15 @@ struct LR_Context {
     int lightingSize;
 };
 
+#include <math.h>
+#define Z_FRACTIONAL_BITS (24)
+#define Z_UL1 ((uint64_t)1)
+#define Z_BITMASK ((Z_UL1 << 59) - 1)
 
+#define KEY_FROMZ(zval) ( \
+    (((uint64_t)(round(fabs((double)(zval)) * (1 << Z_FRACTIONAL_BITS)))) & Z_BITMASK) |\
+    ((zval) > 0 ? (Z_UL1 << 60ULL) : 0) \
+)
 
 #define LR_LightingInfoPtr(x) ((void*)((char*)(x) + sizeof(LR_LightingInfo)))
 

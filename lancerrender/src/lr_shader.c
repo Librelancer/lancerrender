@@ -126,8 +126,8 @@ void LR_Shader_SetTransform(LR_Context *ctx, LR_Shader *shader, LR_Handle transf
     uint64_t id = ((uint64_t)ctx->currentFrame << 32) | (uint64_t)transform;
     if(shader->currentTransform != id) {
         shader->currentTransform = id;
-        if(shader->posWorld != -1) glUniformMatrix4fv(shader->posWorld, 1, GL_FALSE, (GLfloat*)&ctx->transforms[transform]);
-        if(shader->posNormal != -1) glUniformMatrix4fv(shader->posNormal, 1, GL_FALSE, (GLfloat*)&ctx->transforms[transform + 1]);
+        if(shader->posWorld != -1) glUniformMatrix4fv(shader->posWorld, 1, GL_FALSE, (GLfloat*)&LRVEC_IDX(&ctx->transforms, LR_Matrix4x4, transform));
+        if(shader->posNormal != -1) glUniformMatrix4fv(shader->posNormal, 1, GL_FALSE, (GLfloat*)&LRVEC_IDX(&ctx->transforms, LR_Matrix4x4, transform + 1));
     }
 }
 
@@ -158,7 +158,7 @@ LREXPORT void LR_ShaderCollection_AddDefaultShader(LR_Context *ctx, LR_ShaderCol
 LREXPORT void LR_ShaderCollection_AddShaderByVertex(LR_Context *ctx, LR_ShaderCollection *col, LR_VertexDeclaration *decl, int caps, LR_Shader *shader)
 {
     ShaderVariants *vpair = NULL;
-    uint64_t hash = LR_VertexDeclaration_GetHash(decl);
+    uint64_t hash = decl->hash;
     /* Find entry */
     for(int i = 0; i < col->vertexSpecificCount; i++) {
         if(col->vertexSpecific[i].vertHash == hash) {
@@ -178,7 +178,7 @@ LREXPORT void LR_ShaderCollection_AddShaderByVertex(LR_Context *ctx, LR_ShaderCo
 LR_Shader* LR_ShaderCollection_GetShader(LR_Context *ctx, LR_ShaderCollection *col, LR_VertexDeclaration *decl, int caps)
 {
     ShaderVariants *vpair = NULL;
-    uint64_t hash = LR_VertexDeclaration_GetHash(decl);
+    uint64_t hash = decl->hash;
     /* Find vertex entry */
     for(int i = 0; i < col->vertexSpecificCount; i++) {
         if(col->vertexSpecific[i].vertHash == hash) {
