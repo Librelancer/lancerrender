@@ -485,7 +485,9 @@ LREXPORT void LR_Draw(
     } else {
         //opaque drawn first by setting highest bit in key
         //sort by material
-        key = (1ULL << 63) | (uint64_t)material;
+        //then by reverse of Z (draw closest first)
+        uint32_t revZ = 0x7FFFFFFF - (LR_F32ToUI32(zval) >> 1);
+        key = (1ULL << 63) | (uint64_t)(material << 31) | revZ;
     }
     LR_DrawCommand command = {
         .key = key,

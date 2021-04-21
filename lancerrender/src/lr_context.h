@@ -105,15 +105,19 @@ struct LR_Context {
     int lightingSize;
 };
 
-#include <math.h>
-#define Z_FRACTIONAL_BITS (24)
-#define Z_UL1 ((uint64_t)1)
-#define Z_BITMASK ((Z_UL1 << 59) - 1)
+static inline uint32_t LR_F32ToUI32(float flt)
+{
+    union { float f; uint32_t i; } f2i;
+    f2i.f = flt;
+    uint32_t i = f2i.i;
+    //bit massaging to fix any negative values
+    uint32_t mask = -(int)(i >> 31) | 0x80000000;
+    return i ^ mask;
+} 
 
-#define KEY_FROMZ(zval) ( \
-    (((uint64_t)(round(fabs((double)(zval)) * (1 << Z_FRACTIONAL_BITS)))) & Z_BITMASK) |\
-    ((zval) > 0 ? (Z_UL1 << 60ULL) : 0) \
-)
+#define KEY_FROMZ(zval) ((uint64_t)(LR_FloatToInt(zval)))
+
+
 
 #define LR_LightingInfoPtr(x) ((void*)((char*)(x) + sizeof(LR_LightingInfo)))
 
