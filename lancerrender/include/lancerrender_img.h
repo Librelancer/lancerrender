@@ -1,5 +1,8 @@
 #ifndef _LR_IMG_H_
 #define _LR_IMG_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <lancerrender.h>
 #include <SDL2/SDL.h>
 typedef enum {
@@ -13,4 +16,7 @@ typedef enum {
 } LRDDSResult;
 
 LRDDSResult LR_DDS_Load(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw);
+#ifdef __cplusplus
+}
+#endif
 #endif
