@@ -52,10 +52,28 @@ else()
     set(MLIB "")
 endif()
 
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SDL2 REQUIRED sdl2)
 target_compile_definitions(lancerrender PRIVATE -DLR_BUILDING_DLL -D_CRT_SECURE_NO_WARNINGS)
 target_include_directories(lancerrender PUBLIC include)
-target_link_libraries(lancerrender ${SDL2_LIBRARIES} ${MLIB})
-target_include_directories(lancerrender PRIVATE ${SDL2_INCLUDE_DIRS} ./gl ${SHADER_DIR}) 
+target_include_directories(lancerrender PRIVATE ./gl ${SHADER_DIR}) 
+
+# SDL2 Dependency
+if (DEFINED SDL2_INCLUDE_DIRS AND DEFINED SDL2_LIBRARIES)
+	message(STATUS "lancerrender: using pre-defined SDL2 variables SDL2_INCLUDE_DIRS and SDL2_LIBRARIES")
+	target_include_directories(lancerrender PRIVATE "$<BUILD_INTERFACE:${SDL2_INCLUDE_DIRS}>")
+	target_link_libraries(lancerrender PRIVATE ${SDL2_LIBRARIES})
+else()
+	# Only try to autodetect if both SDL2 variables aren't explicitly set
+	find_package(SDL2 REQUIRED)
+	if (TARGET SDL2::SDL2)
+		message(STATUS "lancerrender: using TARGET SDL2::SDL2")
+		target_link_libraries(lancerrender SDL2::SDL2)
+	elseif (TARGET SDL2)
+		message(STATUS "lancerrender: using TARGET SDL2")
+		target_link_libraries(lancerrender SDL2)
+	else()
+		message(STATUS "lancerrender: no TARGET SDL2::SDL2, or SDL2, using variables")
+		target_include_directories(lancerrender PRIVATE "$<BUILD_INTERFACE:${SDL2_INCLUDE_DIRS}>")
+        target_link_libraries(lancerrender ${SDL2_LIBRARIES})
+	endif()
+endif()
+

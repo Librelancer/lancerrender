@@ -115,7 +115,7 @@ static inline uint32_t LR_F32ToUI32(float flt)
     return i ^ mask;
 } 
 
-#define KEY_FROMZ(zval) ((uint64_t)(LR_FloatToInt(zval)))
+#define KEY_FROMZ(zval) ((uint64_t)(LR_F32ToUI32(zval)))
 
 
 
