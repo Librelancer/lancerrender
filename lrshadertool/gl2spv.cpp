@@ -16,7 +16,7 @@ fprintf(stderr, "%s\n", log); \
 }
 
 
-int CompileShader_Internal(const char *inputStr, const char *inputName, const char *defines, bool vertex, std::vector<uint>& spv)
+int CompileShader_Internal(const char *inputStr, const char *inputName, const char *defines, bool vertex, std::vector<uint32_t>& spv)
 {
     EShLanguage stage = vertex ? EShLangVertex : EShLangFragment;
     glslang::TShader shader(stage);
@@ -75,7 +75,7 @@ int CompileShader_Internal(const char *inputStr, const char *inputName, const ch
     return 1;
 }
 
-int CompileShader(const char *inputStr, const char *inputName, const char *defines, bool vertex, std::vector<uint>& spv)
+int CompileShader(const char *inputStr, const char *inputName, const char *defines, bool vertex, std::vector<uint32_t>& spv)
 {
     int retval = CompileShader_Internal(inputStr, inputName, defines, vertex, spv);
     return retval;

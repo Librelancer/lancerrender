@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <glad/glad.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 
 void LR_CriticalErrorFunc(LR_Context *ctx, const char *msg)

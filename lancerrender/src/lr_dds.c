@@ -213,7 +213,7 @@ static int LoadSurface(SDL_RWops *rw, DDS_SURFACE *sfc, LRTEXFORMAT fmt, DDS_HEA
 
 
 
-LRDDSResult LR_DDS_Load(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw)
+LREXPORT LRDDSResult LR_DDS_Load(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw)
 {
     uint32_t magic;
     DDS_HEADER header;

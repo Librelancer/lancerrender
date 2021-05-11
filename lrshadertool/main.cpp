@@ -4,7 +4,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef WIN32
+#include <io.h>
+#define access _access
+#define F_OK    0 
+#else
 #include <unistd.h>
+#endif
 #include <vector>
 #include <utility>
 #include "gl2spv.h"
@@ -31,7 +37,7 @@ static int DoFlatten(const char *name) {
     return 0;
 }
 
-int ToGLSL(std::vector<uint>& spirv_binary, std::string& outstr)
+int ToGLSL(std::vector<uint32_t>& spirv_binary, std::string& outstr)
 {
     try
     {
@@ -102,10 +108,10 @@ static StringVectorVector Permute(std::vector<std::string> defs, std::vector<int
                 strings.push_back(defs[i]);
             }
         }
-        FeaturePair pair = {
-            .strings = strings,
-            .flags = c
-        };
+        /* Designated initializers are not valid in C++11 */
+        FeaturePair pair;
+        pair.strings = strings;
+        pair.flags = c;
         strcombos.push_back(pair);
     }
     return strcombos;
@@ -233,7 +239,7 @@ int CompilerMain(int argc, char **argv)
     ShFile shader(arg1);
 
     std::string filename = GetFilename(arg1);
-    std::vector<uint> spv;
+    std::vector<uint32_t> spv;
     std::string outGlsl;
 
     std::vector<std::string> flStrings;
@@ -297,7 +303,7 @@ int CompilerMain(int argc, char **argv)
             std::cout << outGlsl << std::endl;
         }
         zero.vertex = outGlsl;
-        spv = std::vector<uint>();
+        spv = std::vector<uint32_t>();
         if(!CompileShader(shader.fragment_source.c_str(), filename.c_str(), "", false, spv)) {
             fprintf(stderr, "fragment shader compilation failed\n");
             return 1;
@@ -334,7 +340,7 @@ int CompilerMain(int argc, char **argv)
         }
         std::string defs = defineBlock.str();
         const char *chars_def = defs.c_str();
-        spv = std::vector<uint>();
+        spv = std::vector<uint32_t>();
         if(!CompileShader(shader.vertex_source.c_str(), filename.c_str(), chars_def, true, spv)) {
             fprintf(stderr, "vertex shader compilation failed\n using %s\n", chars_def);
             return 1;
@@ -343,7 +349,7 @@ int CompilerMain(int argc, char **argv)
             fprintf(stderr, "vertex shader compilation failed\nusing %s\n", chars_def);
             return 1;
         }
-        spv = std::vector<uint>();
+        spv = std::vector<uint32_t>();
         sh.vertex = outGlsl;
          if(!CompileShader(shader.fragment_source.c_str(), filename.c_str(), chars_def, false, spv)) {
             fprintf(stderr, "fragment shader compilation failed\nusing %s\n", chars_def);

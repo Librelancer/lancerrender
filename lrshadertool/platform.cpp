@@ -13,6 +13,8 @@
 #ifdef _WIN32
 #include <tchar.h>
 #include <io.h>
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #endif
 
 #define ENCODING_ASCII      0
@@ -84,3 +86,17 @@ std::string ReadAllText(std::string path)
 	}
 	return result;
 }
+
+#ifdef WIN32
+char* win32_realpath(const char* inpath, char* mustNull)
+{
+	if (mustNull) throw std::runtime_error("2nd param of realpath should be null"); //Don't support other usages
+	DWORD szBuf = GetFullPathNameA(inpath, 0, NULL, NULL);
+	if (!szBuf) {
+		return NULL;
+	}
+	char* str = (char*)malloc(szBuf);
+	GetFullPathNameA(inpath, szBuf, str, NULL);
+	return str;
+}
+#endif

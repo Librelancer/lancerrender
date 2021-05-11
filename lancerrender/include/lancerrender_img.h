@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 #include <lancerrender.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 typedef enum {
     LRDDSResult_OK = 0,
     LRDDSResult_INVALIDORCORRUPT = -1,
@@ -15,7 +15,7 @@ typedef enum {
     LRDDSResult_TOOMANYLEVELS = -6
 } LRDDSResult;
 
-LRDDSResult LR_DDS_Load(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw);
+LREXPORT LRDDSResult LR_DDS_Load(LR_Context *ctx, LR_Texture *tex, SDL_RWops *rw);
 #ifdef __cplusplus
 }
 #endif
