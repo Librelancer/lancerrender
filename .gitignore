@@ -30,7 +30,7 @@ launchSettings.json
 *.opendb
 .vs/
 .vscode/
-
+CMakeSettings.json
 
 # Sublime Text
 *.sublime-project
