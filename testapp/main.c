@@ -105,11 +105,27 @@ typedef struct {
 
 Lighting ltMonkey;
 
+int pathEndsSlash = 0;
+char *basePath = "./";
+
+char *ResolvePath(const char *path)
+{
+    char path2[1024];
+    if(pathEndsSlash) {
+        snprintf(path2, 1023, "%s%s", basePath, path);
+    } else {
+        snprintf(path2, 1023, "%s/%s", basePath, path);
+    }
+    return SDL_strdup(path2);
+}
+
 static LR_Texture *LoadFileStb(const char *path)
 {
+    char *path2 = ResolvePath(path);
     LR_Texture *tx = LR_Texture_Create(lrctx, 0);
     int x,y,n;
-    unsigned char *data = stbi_load(path, &x, &y, &n, 4);
+    unsigned char *data = stbi_load(path2, &x, &y, &n, 4);
+    SDL_free(path2);
     //swap channels
     for(int i = 0; i < x * y; i++) {
         unsigned char *ptr = &data[i * 4];
@@ -125,8 +141,10 @@ static LR_Texture *LoadFileStb(const char *path)
 
 static LR_Texture *LoadFileBgra5551(const char *path)
 {
+    char *path2 = ResolvePath(path);
     LR_Texture *tx = LR_Texture_Create(lrctx, 0);
-    FILE *f = fopen(path, "rb");
+    FILE *f = fopen(path2, "rb");
+    SDL_free(path2);
     int x, y;
     fread(&x, sizeof(int), 1, f);
     fread(&y, sizeof(int), 1, f);
@@ -141,8 +159,10 @@ static LR_Texture *LoadFileBgra5551(const char *path)
 
 static LR_Texture *LoadFileDDS(const char *path)
 {
+    char *path2 = ResolvePath(path);
     LR_Texture *tx = LR_Texture_Create(lrctx, 0);
-    SDL_RWops *file = SDL_RWFromFile(path, "rb");
+    SDL_RWops *file = SDL_RWFromFile(path2, "rb");
+    free(path2);
     LRDDSResult result = LR_DDS_Load(lrctx, tx, file);
     if(result < 0) {
         printf("Error loading DDS file %s (%d)\n", path, result);
@@ -152,8 +172,18 @@ static LR_Texture *LoadFileDDS(const char *path)
     return tx;
 }
 
+
+
 static void Sample_Init()
 {
+    /* base path */
+    basePath = SDL_GetBasePath();
+    if(!basePath) basePath = SDL_strdup("./");
+    {
+        int ilen = strlen(basePath);
+        pathEndsSlash = (basePath[ilen - 1] == '/' || basePath[ilen - 1] == '\\');
+    }
+    /* init */
     lrctx = LR_Init(gles);
     texture = LoadFileStb("texture.png");
     monkey = LoadFileStb("monkey.png");
@@ -163,7 +193,9 @@ static void Sample_Init()
     msaa = NULL;
     rt = LR_RenderTarget_Create(lrctx, 128, 128, LRTEXFORMAT_BGRA8888, 1);
     LR_ShaderCollection *sh = LR_ShaderCollection_Create(lrctx);
-    SDL_RWops* file = SDL_RWFromFile("monkeyshader.shader", "rb");
+    char *monkeyPath = ResolvePath("monkeyshader.shader");
+    SDL_RWops* file = SDL_RWFromFile(monkeyPath, "rb");
+    SDL_free(monkeyPath);
     LR_ShaderCollection_DefaultShadersFromFile(lrctx, sh, file);
     SDL_RWclose(file);
 
@@ -193,7 +225,9 @@ static void Sample_Init()
 
 
     LR_ShaderCollection *sh2 = LR_ShaderCollection_Create(lrctx);
-    SDL_RWops* file2 = SDL_RWFromFile("billboard.shader", "rb");
+    char *billboardPath = ResolvePath("billboard.shader");
+    SDL_RWops* file2 = SDL_RWFromFile(billboardPath, "rb");
+    SDL_free(billboardPath);
     LR_ShaderCollection_DefaultShadersFromFile(lrctx, sh2, file2);
     SDL_RWclose(file2);
 
