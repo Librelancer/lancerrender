@@ -1,7 +1,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <cstring>
 #include <cstdarg>
+#include "binary.h"
 
 using namespace std;
 
@@ -52,8 +54,12 @@ void write_line(const string & line) {
    out("\"%s\\n\"\n", line.c_str());
 }
 int main(int argc, char** args) {
+   if (argc == 5 && !strcmp(args[1], "-b")) {
+      return binary_main(argc, args);
+   }
    if (argc != 4) {
-      printf("syntax error, usage :  %s array_name infile outfile", args[0]);
+      printf("syntax error, usage : %s [-b] array_name infile outfile\n", args[0]);
+      printf("use -b switch to generate binary files\n");
       exit(0xff);
    }
    array_name = args[1];

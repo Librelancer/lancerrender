@@ -77,6 +77,8 @@ LR_Texture *monkey;
 LR_Texture *alphaPng;
 LR_Texture *alphaBgra;
 LR_Texture *dxt5tex;
+LR_RenderTarget *rt;
+LR_RenderTarget *msaa;
 
 LR_Handle billboardMaterial;
 LR_DynamicDraw *billboards;
@@ -158,7 +160,8 @@ static void Sample_Init()
     alphaPng = LoadFileStb("alphatex.png");
     alphaBgra = LoadFileBgra5551("alphatex.bgra5551");
     dxt5tex = LoadFileDDS("dxt5.dds");
-
+    msaa = NULL;
+    rt = LR_RenderTarget_Create(lrctx, 128, 128, LRTEXFORMAT_BGRA8888, 1);
     LR_ShaderCollection *sh = LR_ShaderCollection_Create(lrctx);
     SDL_RWops* file = SDL_RWFromFile("monkeyshader.shader", "rb");
     LR_ShaderCollection_DefaultShadersFromFile(lrctx, sh, file);
@@ -249,8 +252,17 @@ static void Sample_Loop()
     int w, h;
     t += 0.01;
     SDL_GetWindowSize(window, &w, &h);
+    if(!msaa || LR_RenderTarget_GetWidth(lrctx, msaa) != w || LR_RenderTarget_GetHeight(lrctx, msaa) != h) {
+        if(msaa) LR_RenderTarget_Destroy(lrctx, msaa);
+        msaa = LR_RenderTarget_CreateMultisample(lrctx, w, h, 1, 4); //4x MSAA
+    }
     LR_BeginFrame(lrctx, w, h);
+    LR_SetRenderTarget(lrctx, msaa);
     LR_ClearAll(lrctx, 0.0, 0.0, 0.0, 1.0);
+    /* draw rendertarget */
+    LR_SetRenderTarget(lrctx, rt);
+    LR_ClearAll(lrctx, 0.392, 0.584, 0.929, 1.0);
+    LR_SetRenderTarget(lrctx, msaa);
     /* set camera */
     mat4 view = GLM_MAT4_IDENTITY_INIT;
     mat4 projection = GLM_MAT4_IDENTITY_INIT;
@@ -289,6 +301,8 @@ static void Sample_Loop()
     LR_2D_DrawImage(lrctx, alphaBgra, 400, 200, 0, 0, 0xFFFFFFFF);
     //dds
     LR_2D_DrawImage(lrctx, dxt5tex, 0, 0, 0, 0, 0xFFFFFFFF);
+    //rt
+    LR_2D_DrawImage(lrctx, LR_RenderTarget_GetTexture(lrctx, rt), 400, 300, 0, 0, 0xFFFFFFFF);
     /* draw 3d */
     LR_Handle transform = LR_AllocTransform(lrctx, (LR_Matrix4x4*)world, (LR_Matrix4x4*)normal);
     ltMonkey.lightEnabled = ltToggle ? 1.0 : 0.0;
@@ -302,6 +316,8 @@ static void Sample_Loop()
     pos[0] = -2; pos[1] = -0.5; pos[2] = -1.2;
     AddBillboard(pos, cos(t), LR_RGBA(0xFF, 0x00, 0x00, 0xBA));
     /* finish */
+    LR_SetRenderTarget(lrctx, NULL);
+    LR_RenderTarget_BlitToScreen(lrctx, msaa);
     LR_EndFrame(lrctx);
 }
 

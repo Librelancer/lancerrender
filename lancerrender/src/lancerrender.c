@@ -4,6 +4,7 @@
 #include "lr_geometry.h"
 #include "lr_fnv1a.h"
 #include "lr_dynamicdraw.h"
+#include "lr_rendertarget.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -114,6 +115,7 @@ LREXPORT LR_Context *LR_Init(int gles)
     ctx->ren2d = LR_2D_Init(ctx);
     ctx->cullMode = LRCULL_CCW;
     ctx->depthWrite = 1;
+    glGetIntegerv(GL_MAX_SAMPLES, &ctx->maxSamples);
     LRVEC_INIT(&ctx->commands, LR_DrawCommand, LR_INITIAL_CAPACITY);
     LRVEC_INIT(&ctx->transforms, LR_Matrix4x4, LR_INITIAL_TRANSFORM_CAPACITY);
     LRVEC_INIT(&ctx->tempMaterials, LR_Handle, 16);
@@ -122,6 +124,16 @@ LREXPORT LR_Context *LR_Init(int gles)
     ctx->materials = blockalloc_Init(sizeof(LR_Material), LR_MAX_MATERIAL_ADDRESS);
     glDisable(GL_BLEND);
     return ctx;
+}
+
+LREXPORT int LR_GetMaxSamples(LR_Context *ctx)
+{
+    return ctx->maxSamples;
+}
+
+LREXPORT int LR_GetMaxAnisotropy(LR_Context *ctx)
+{
+    return ctx->maxAnisotropy;
 }
 
 #define OFFSET_PTR(type,ptr,offset)(  (type*)(&((char*)(ptr))[(offset)])  )
@@ -224,12 +236,26 @@ void LR_BindTex(LR_Context *ctx, int unit, GLenum target, GLuint tex)
 
 static GLenum GLBlendMode(LRBLEND b) {
     switch(b) {
+        case LRBLEND_SRCCOLOR:
+            return GL_SRC_COLOR;
+        case LRBLEND_INVSRCCOLOR:
+            return GL_ONE_MINUS_SRC_COLOR;
         case LRBLEND_SRCALPHA:
             return GL_SRC_ALPHA;
         case LRBLEND_INVSRCALPHA:
             return GL_ONE_MINUS_SRC_ALPHA;
+        case LRBLEND_DESTALPHA:
+            return GL_DST_ALPHA;
+        case LRBLEND_INVDESTALPHA:
+            return GL_ONE_MINUS_DST_ALPHA;
+        case LRBLEND_DESTCOLOR:
+            return GL_DST_COLOR;
+        case LRBLEND_INVDESTCOLOR:
+            return GL_ONE_MINUS_DST_COLOR;
         case LRBLEND_ONE:
             return GL_ONE;
+        case LRBLEND_SRCALPHASAT:
+            return GL_SRC_ALPHA_SATURATE;
         case LRBLEND_ZERO:
         default:
             return GL_ZERO;
@@ -398,6 +424,21 @@ LREXPORT void LR_BeginFrame(LR_Context *ctx, int width, int height)
     ctx->lastLighting = 0;
 }
 
+LREXPORT void LR_SetRenderTarget(LR_Context *ctx, LR_RenderTarget *rt)
+{
+    FRAME_CHECK_VOID("LR_SetRenderTarget");
+    LR_FlushDraws(ctx);
+    if(rt) {
+         if(ctx->bound_fbo != rt->gl) {
+             glBindFramebuffer(GL_FRAMEBUFFER, rt->gl);
+             ctx->bound_fbo = rt->gl;
+         }
+    } else {
+        if(ctx->bound_fbo) glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        ctx->bound_fbo = 0;   
+    }
+}
+
 LREXPORT void LR_PushViewport(LR_Context *ctx, int x, int y, int width, int height)
 {
     FRAME_CHECK_VOID("LR_PushViewport");
@@ -463,6 +504,10 @@ LREXPORT void LR_EndFrame(LR_Context *ctx)
     }
     ctx->tempMaterials.currIdx = 0;
     ctx->inframe = 0;
+    if(ctx->bound_fbo) {
+        ctx->bound_fbo = 0;
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 }
 
 LREXPORT void LR_Draw(

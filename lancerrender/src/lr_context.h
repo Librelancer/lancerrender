@@ -68,6 +68,7 @@ struct LR_Context {
     /* gl state */
     int anisotropy;
     int maxAnisotropy;
+    int maxSamples;
     int scissorEnabled;
     LRCULL cullMode;
     int blendEnabled;
@@ -76,6 +77,7 @@ struct LR_Context {
     GLuint bound_program;
     GLuint bound_vao;
     GLuint bound_textures[LR_MAX_TEXTURES];
+    GLuint bound_fbo;
     int currentUnit;
     int depthMode;
     int depthWrite;

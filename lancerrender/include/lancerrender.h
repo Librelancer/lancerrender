@@ -106,6 +106,7 @@ typedef struct LR_Shader LR_Shader;
 typedef struct LR_ShaderCollection LR_ShaderCollection;
 typedef struct LR_Material LR_Material;
 typedef struct LR_Texture LR_Texture;
+typedef struct LR_RenderTarget LR_RenderTarget;
 typedef struct LR_DynamicDraw LR_DynamicDraw;
 
 typedef struct LR_VertexElement {
@@ -141,6 +142,9 @@ typedef void (*LR_TexLoadCallback)(LR_Context*, LR_Texture*);
 
 /* FUNCTIONS */
 LREXPORT LR_Context *LR_Init(int gles);
+LREXPORT int LR_GetMaxSamples(LR_Context *ctx);
+LREXPORT int LR_GetMaxAnisotropy(LR_Context *ctx);
+
 LREXPORT void LR_SetErrorCallback(LR_Context *ctx, LR_ErrorCallback cb);
 LREXPORT void LR_Destroy(LR_Context *ctx);
 
@@ -195,7 +199,24 @@ LREXPORT void LR_Texture_Unload(LR_Context *ctx, LR_Texture *tex);
  * or you will get a segmentation fault
  */
 LREXPORT void LR_Texture_Destroy(LR_Context *ctx, LR_Texture *tex);
-
+/* Render Targets */
+LREXPORT void LR_SetRenderTarget(LR_Context *ctx, LR_RenderTarget *rt);
+LREXPORT void LR_RenderTarget_BlitTargets(LR_Context *ctx, LR_RenderTarget *src, LR_RenderTarget *dst);
+LREXPORT void LR_RenderTarget_BlitToScreen(LR_Context *ctx, LR_RenderTarget *src);
+LREXPORT int LR_RenderTarget_GetWidth(LR_Context *ctx, LR_RenderTarget *rt);
+LREXPORT int LR_RenderTarget_GetHeight(LR_Context *ctx, LR_RenderTarget *rt);
+/* Creates a render target with a new texture, texture will be freed on destroy unless LR_RenderTarget_DecoupleTexture is called*/
+LREXPORT LR_RenderTarget *LR_RenderTarget_Create(LR_Context *ctx, int width, int height, LRTEXFORMAT colorFormat, int useDepth);
+/* Creates a render target for MSAA rendering. Does not expose the underlying texture */
+LREXPORT LR_RenderTarget *LR_RenderTarget_CreateMultisample(LR_Context *ctx, int width, int height, int useDepth, int samples);
+/* Creates a render target to draw to tex, does not free tex on destroy */
+LREXPORT LR_RenderTarget *LR_RenderTarget_FromTexture(LR_Context *ctx, LR_Texture *tex, int useDepth);
+/* Gets the color texture for the render target */
+LREXPORT LR_Texture *LR_RenderTarget_GetTexture(LR_Context *ctx, LR_RenderTarget *rt);
+/* Stops the render target from freeing the created texture when destroyed */
+LREXPORT void LR_RenderTarget_DecoupleTexture(LR_Context *ctx, LR_RenderTarget *rt);
+LREXPORT void LR_RenderTarget_Destroy(LR_Context *ctx, LR_RenderTarget *rt);
+/* Shaders */
 LREXPORT LR_Shader *LR_Shader_Create(LR_Context *ctx, const char *vertex_source, const char *fragment_source);
 LREXPORT LR_ShaderCollection* LR_ShaderCollection_Create(LR_Context *ctx);
 LREXPORT void LR_ShaderCollection_AddDefaultShader(LR_Context *ctx, LR_ShaderCollection *col, int caps, LR_Shader *shader);

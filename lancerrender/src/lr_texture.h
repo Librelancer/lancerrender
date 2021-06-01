@@ -17,6 +17,7 @@ struct LR_Texture {
     int setAnisotropy;
     GLenum target;
     GLuint textureObj;
+    int inFbo;
 };
 
 int LR_Texture_EnsureLoaded(LR_Context *ctx, LR_Texture *tex);

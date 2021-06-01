@@ -3,7 +3,7 @@ set(CMAKE_C_STANDARD 99)
 project (lancerrender)
 
 add_executable(
-    txt2h txt2h/main.cpp
+    txt2h txt2h/main.cpp txt2h/binary.c
 )
 
 set(SHADER_DIR ${CMAKE_CURRENT_BINARY_DIR}/gen)
@@ -14,6 +14,15 @@ macro(shader name ext)
     add_custom_command(
         OUTPUT ${SHADER_DIR}/${name}.h
         COMMAND txt2h ${name} ${LRSRC}/${name}.${ext} ${SHADER_DIR}/${name}.h
+        DEPENDS ${LRSRC}/${name}.${ext} 
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endmacro()
+
+macro(embedded_binary name ext)
+    add_custom_command(
+        OUTPUT ${SHADER_DIR}/${name}.h
+        COMMAND txt2h -b ${name} ${LRSRC}/${name}.${ext} ${SHADER_DIR}/${name}.h
         DEPENDS ${LRSRC}/${name}.${ext} 
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
@@ -32,6 +41,7 @@ src/lr_shader.c
 src/lr_material.c
 src/lr_blockalloc.c
 src/lr_texture.c
+src/lr_rendertarget.c
 src/lr_sort.c
 src/lr_2d.c
 src/lr_shaderfile.c
