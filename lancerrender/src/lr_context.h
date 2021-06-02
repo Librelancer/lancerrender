@@ -65,6 +65,7 @@ struct LR_Context {
     int gles;
     LR_ErrorCallback errorcb;
     LR_TexLoadCallback texcb;
+    LR_Vector flags;
     /* gl state */
     int anisotropy;
     int maxAnisotropy;

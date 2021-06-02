@@ -102,6 +102,12 @@ static void CheckExtensions(LR_Context *ctx)
     }
 }
 
+LREXPORT void LR_GetContextFlags(LR_Context *ctx, LR_ContextFlags *flags)
+{
+    flags->nflags = ctx->flags.currIdx;
+    flags->flags = (const char **)ctx->flags.ptr;
+}
+
 LREXPORT LR_Context *LR_Init(int gles)
 {
     LR_Context *ctx = (LR_Context*)malloc(sizeof(struct LR_Context));
@@ -111,6 +117,14 @@ LREXPORT LR_Context *LR_Init(int gles)
         return NULL;
     }
     ctx->gles = gles;
+    /* flags */
+    LRVEC_INIT(&ctx->flags, char*, 2);
+    if(ctx->gles) {
+        LRVEC_ADD_VAL(ctx, &ctx->flags, char*, "GL ES");
+    }
+    if(!GLAD_GL_EXT_texture_compression_s3tc) {
+        LRVEC_ADD_VAL(ctx, &ctx->flags, char*, "Software S3TC");
+    }
     CheckExtensions(ctx);
     ctx->ren2d = LR_2D_Init(ctx);
     ctx->cullMode = LRCULL_CCW;
@@ -124,6 +138,18 @@ LREXPORT LR_Context *LR_Init(int gles)
     ctx->materials = blockalloc_Init(sizeof(LR_Material), LR_MAX_MATERIAL_ADDRESS);
     glDisable(GL_BLEND);
     return ctx;
+}
+
+LREXPORT const char *LR_GetString(LR_Context *ctx, LRSTRING string)
+{
+    switch(string) {
+        case LRSTRING_APIVERSION:
+            return glGetString(GL_VERSION);
+        case LRSTRING_APIRENDERER:
+            return glGetString(GL_RENDERER);
+        default:
+            return "invalid string enum";
+    }
 }
 
 LREXPORT int LR_GetMaxSamples(LR_Context *ctx)
@@ -557,5 +583,6 @@ LREXPORT void LR_Destroy(LR_Context *ctx)
     LR_2D_Destroy(ctx, ctx->ren2d);
     LRVEC_FREE(ctx, &ctx->commands, LR_DrawCommand);
     LRVEC_FREE(ctx, &ctx->transforms, LR_Matrix4x4);
+    LRVEC_FREE(ctx, &ctx->flags, char*);
     free((void*)ctx);
 }

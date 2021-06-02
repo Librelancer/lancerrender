@@ -93,6 +93,11 @@ typedef enum LRTEXFILTER {
     LRTEXFILTER_LINEAR
 } LRTEXFILTER;
 
+typedef enum LRSTRING {
+    LRSTRING_APIVERSION,
+    LRSTRING_APIRENDERER
+} LRSTRING;
+
 typedef struct {
     float m[16];
 } LR_Matrix4x4;
@@ -108,6 +113,11 @@ typedef struct LR_Material LR_Material;
 typedef struct LR_Texture LR_Texture;
 typedef struct LR_RenderTarget LR_RenderTarget;
 typedef struct LR_DynamicDraw LR_DynamicDraw;
+
+typedef struct LR_ContextFlags {
+    int nflags;
+    const char **flags;
+} LR_ContextFlags;
 
 typedef struct LR_VertexElement {
     LRELEMENTSLOT slot;
@@ -142,8 +152,11 @@ typedef void (*LR_TexLoadCallback)(LR_Context*, LR_Texture*);
 
 /* FUNCTIONS */
 LREXPORT LR_Context *LR_Init(int gles);
+/* Renderer Queries */
 LREXPORT int LR_GetMaxSamples(LR_Context *ctx);
 LREXPORT int LR_GetMaxAnisotropy(LR_Context *ctx);
+LREXPORT const char *LR_GetString(LR_Context *ctx, LRSTRING string);
+LREXPORT void LR_GetContextFlags(LR_Context *ctx, LR_ContextFlags *flags);
 
 LREXPORT void LR_SetErrorCallback(LR_Context *ctx, LR_ErrorCallback cb);
 LREXPORT void LR_Destroy(LR_Context *ctx);

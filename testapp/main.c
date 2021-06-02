@@ -203,6 +203,15 @@ static void Sample_Init()
     }
     /* init */
     lrctx = LR_Init(gles);
+    printf("Renderer: %s\n", LR_GetString(lrctx, LRSTRING_APIRENDERER));
+    printf("Api Version: %s\n", LR_GetString(lrctx, LRSTRING_APIVERSION));
+    printf("Max Anisotropy: %d\n", LR_GetMaxAnisotropy(lrctx));
+    printf("Max Samples: %d\n", LR_GetMaxSamples(lrctx));
+    LR_ContextFlags flags;
+    LR_GetContextFlags(lrctx, &flags);
+    for(int i = 0; i < flags.nflags; i++) {
+        printf("Renderer Flag: %s\n", flags.flags[i]);
+    }
     texture = LoadFileStb("texture.png");
     monkey = LoadFileStb("monkey.png");
     alphaPng = LoadFileStb("alphatex.png");
