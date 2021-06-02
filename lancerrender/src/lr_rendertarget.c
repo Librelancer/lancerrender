@@ -139,7 +139,7 @@ LREXPORT LR_RenderTarget *LR_RenderTarget_CreateMultisample(LR_Context *ctx, int
     glBindRenderbuffer(GL_RENDERBUFFER, rt->msBuffer);
     GL_CHECK(ctx, glRenderbufferStorageMultisample(
         GL_RENDERBUFFER, samples,
-        GL_RGBA, 
+        GL_RGBA8, 
         width,
         height        
     ));

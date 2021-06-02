@@ -11,6 +11,7 @@
 
 static SDL_Window* window;
 static int gles = 0;
+static int useMsaa = 0;
 
 static void Sample_Init();
 static void Sample_Loop();
@@ -29,11 +30,28 @@ int main(int argc, char **argv)
         640, 480, 
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
     );
-    if(argc > 1 && !strcmp(argv[1], "gles")) {
-        printf("Using GLES 3.1 context\n");
-        gles = 1;
+    for(int i = 1; i < argc; i++) {
+        if(!strcmp(argv[i], "gles")) {
+            printf("Using GLES 3.1 context\n");
+            gles = 1;
+        }
+        if(!strcmp(argv[i], "2x")) {
+            printf("Using 2x MSAA\n");
+            useMsaa = 2;
+        }
+        if(!strcmp(argv[i], "4x")) {
+            printf("Using 4x MSAA\n");
+            useMsaa = 4;
+        }
     }
 
+    /* create RGBA window */
+    /* required for MSAA resolves to work correctly on GLES */
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+    
     if(gles) {
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
@@ -286,12 +304,12 @@ static void Sample_Loop()
     int w, h;
     t += 0.01;
     SDL_GetWindowSize(window, &w, &h);
-    if(!msaa || LR_RenderTarget_GetWidth(lrctx, msaa) != w || LR_RenderTarget_GetHeight(lrctx, msaa) != h) {
+    if(useMsaa && (!msaa || LR_RenderTarget_GetWidth(lrctx, msaa) != w || LR_RenderTarget_GetHeight(lrctx, msaa) != h)) {
         if(msaa) LR_RenderTarget_Destroy(lrctx, msaa);
-        msaa = LR_RenderTarget_CreateMultisample(lrctx, w, h, 1, 4); //4x MSAA
+        msaa = LR_RenderTarget_CreateMultisample(lrctx, w, h, 1, useMsaa); //user picked
     }
     LR_BeginFrame(lrctx, w, h);
-    LR_SetRenderTarget(lrctx, msaa);
+    LR_SetRenderTarget(lrctx, msaa ? msaa : NULL);
     LR_ClearAll(lrctx, 0.0, 0.0, 0.0, 1.0);
     /* draw rendertarget */
     LR_SetRenderTarget(lrctx, rt);
@@ -350,8 +368,10 @@ static void Sample_Loop()
     pos[0] = -2; pos[1] = -0.5; pos[2] = -1.2;
     AddBillboard(pos, cos(t), LR_RGBA(0xFF, 0x00, 0x00, 0xBA));
     /* finish */
-    LR_SetRenderTarget(lrctx, NULL);
-    LR_RenderTarget_BlitToScreen(lrctx, msaa);
+    if(msaa) {
+        LR_SetRenderTarget(lrctx, NULL);
+        LR_RenderTarget_BlitToScreen(lrctx, msaa);
+    }
     LR_EndFrame(lrctx);
 }
 
