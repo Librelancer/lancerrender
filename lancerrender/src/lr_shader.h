@@ -10,6 +10,7 @@ struct LR_Shader {
     GLuint vertexID;
     GLuint fragmentID;
     GLint samplerLocations[LR_MAX_SAMPLERS];
+    int samplerHashes[LR_MAX_SAMPLERS];
     GLint posView;
     GLint posProjection;
     GLint posViewProjection;
@@ -18,11 +19,12 @@ struct LR_Shader {
     GLint pos_vsMaterial;
     GLint pos_fsMaterial;
     GLint pos_Lighting;
+    int currentUniformBlock;
     int hash_fsMaterial;
     int hash_vsMaterial;
     int cameraVersion; 
     int hash_Lighting;
-    int size_Lighting;  
+    int size_Lighting; 
     uint64_t currentTransform;
 };
 
@@ -54,7 +56,7 @@ struct LR_ShaderCollection {
 void LR_Shader_ResetSamplers(LR_Context *ctx, LR_Shader *shader);
 
 /* index is 1-based, texture unit 0 is reserved for modifying texture state */
-void LR_Shader_SetSamplerIndex(LR_Context *ctx, LR_Shader *shader, const char *sampler, int index);
+void LR_Shader_SetSamplerIndex(LR_Context *ctx, LR_Shader *shader, const char *sampler, int hash, int index);
 
 LR_Shader* LR_ShaderCollection_GetShader(LR_Context *ctx, LR_ShaderCollection *col, LR_VertexDeclaration *decl, int caps);
 void LR_Shader_SetCamera(LR_Context *ctx, LR_Shader *shader);
@@ -62,4 +64,5 @@ void LR_Shader_SetTransform(LR_Context *ctx, LR_Shader *shader, LR_Handle transf
 void LR_Shader_SetFsMaterial(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size);
 void LR_Shader_SetVsMaterial(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size);
 void LR_Shader_SetLighting(LR_Context *ctx, LR_Shader *sh, int hash, void *data, int size);
+void LR_Shader_SetUniformBlock(LR_Context *ctx, LR_Shader *sh, int hash, const char *name);
 #endif

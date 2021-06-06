@@ -113,6 +113,13 @@ typedef struct LR_Material LR_Material;
 typedef struct LR_Texture LR_Texture;
 typedef struct LR_RenderTarget LR_RenderTarget;
 typedef struct LR_DynamicDraw LR_DynamicDraw;
+typedef struct LR_UniformBuffer LR_UniformBuffer;
+
+typedef struct LR_UniformBufferBinding {
+    LR_UniformBuffer *buffer;
+    int start;
+    int count;
+} LR_UniformBufferBinding;
 
 typedef struct LR_ContextFlags {
     int nflags;
@@ -229,6 +236,11 @@ LREXPORT LR_Texture *LR_RenderTarget_GetTexture(LR_Context *ctx, LR_RenderTarget
 /* Stops the render target from freeing the created texture when destroyed */
 LREXPORT void LR_RenderTarget_DecoupleTexture(LR_Context *ctx, LR_RenderTarget *rt);
 LREXPORT void LR_RenderTarget_Destroy(LR_Context *ctx, LR_RenderTarget *rt);
+/* Uniform Buffers */
+LREXPORT LR_UniformBuffer *LR_UniformBuffer_Create(LR_Context *ctx, int size, int stride);
+LREXPORT int LR_UniformBuffer_AlignIndex(LR_Context *ctx, LR_UniformBuffer *ubo, int index);
+LREXPORT void LR_UniformBuffer_SetData(LR_Context *ctx, LR_UniformBuffer *ubo, void* ptr, int stride, int start, int len);
+LREXPORT void LR_UniformBuffer_Destroy(LR_Context *ctx, LR_UniformBuffer *ubo);
 /* Shaders */
 LREXPORT LR_Shader *LR_Shader_Create(LR_Context *ctx, const char *vertex_source, const char *fragment_source);
 LREXPORT LR_ShaderCollection* LR_ShaderCollection_Create(LR_Context *ctx);
@@ -244,6 +256,7 @@ LREXPORT void LR_Material_SetSamplerName(LR_Context *ctx, LR_Handle material, in
 LREXPORT void LR_Material_SetSamplerTex(LR_Context *ctx, LR_Handle material, int index, LR_Texture *tex);
 LREXPORT void LR_Material_SetFragmentParameters(LR_Context *ctx, LR_Handle material, void *data, int size);
 LREXPORT void LR_Material_SetVertexParameters(LR_Context *ctx, LR_Handle material, void *data, int size);
+LREXPORT void LR_Material_SetUniformBlock(LR_Context *ctx, LR_Handle material, const char *uniformBlock);
 LREXPORT void LR_Material_Free(LR_Context *ctx, LR_Handle handle);
 /*
  * Temporary Materials
@@ -276,6 +289,7 @@ LREXPORT void LR_Draw(
     LR_Context *ctx,
     LR_Handle material,
     LR_Geometry *geometry,
+    LR_UniformBufferBinding *ubo, //Can be NULL
     LR_Handle transform,
     LR_Handle lighting,
     LRPRIMTYPE primitive,

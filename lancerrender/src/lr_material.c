@@ -13,7 +13,6 @@
 #define LR_MATERIAL_MAGIC (1U << 30)
 #define MATERIAL_VALID(x) ((*(uint32_t*)(x) == LR_MATERIAL_MAGIC))
 #define HANDLE_CHECK(ctx,mat,func) if(!(mat)) LR_CriticalErrorFunc((ctx), #func ": Invalid handle")
-#define MAX_SHADERS (10)
 
 static LR_Material *FromHandle(LR_Context *ctx, LR_Handle handle)
 {
@@ -25,6 +24,7 @@ static LR_Material *FromHandle(LR_Context *ctx, LR_Handle handle)
 
 typedef struct Sampler {
     char *name;
+    int hash;
     LR_Texture *texture;
 } Sampler;
 
@@ -35,6 +35,9 @@ struct INT_LR_Material_ {
     LR_ShaderCollection *shaders;
     //textures
     Sampler samplers[LR_MAX_SAMPLERS];
+    //uniform block
+    char *uniformBlock;
+    int uniformBlockHash;
     //material uniforms
     int hashFsMaterial;
     void *fsMaterialPtr;
@@ -57,8 +60,8 @@ LREXPORT LR_Handle LR_Material_Create(LR_Context *ctx)
     mat->magic = LR_MATERIAL_MAGIC;
     mat->transparent = 0;
     mat->pimpl = malloc(sizeof(INT_LR_Material_));
-    mat->pimpl->cull = LRCULL_CCW;
     memset(mat->pimpl, 0, sizeof(INT_LR_Material_));
+    mat->pimpl->cull = LRCULL_CCW;
     return handle;
 }
 
@@ -135,6 +138,7 @@ LREXPORT void LR_Material_SetSamplerName(LR_Context *ctx, LR_Handle material, in
         free(mat->pimpl->samplers[index].name);
     }
     mat->pimpl->samplers[index].name = lr_strdup(name);
+    mat->pimpl->samplers[index].hash = fnv1a_32(name, strlen(name));
 }
 
 LREXPORT void LR_Material_SetSamplerTex(LR_Context *ctx, LR_Handle material, int index, LR_Texture *tex)
@@ -189,6 +193,15 @@ LREXPORT void LR_Material_Free(LR_Context *ctx, LR_Handle material)
     blockalloc_Free(ctx->materials, material);
 }
 
+LREXPORT void LR_Material_SetUniformBlock(LR_Context *ctx, LR_Handle material, const char *uniformBlock)
+{
+    LR_Material *mat = FromHandle(ctx,material);
+    HANDLE_CHECK(ctx, mat, "LR_Material_SetUniformBlock");
+    INT_LR_Material_ *p = mat->pimpl;
+    if(p->uniformBlock) free(p->uniformBlock);
+    p->uniformBlock = lr_strdup(uniformBlock);
+    p->uniformBlockHash = (int)fnv1a_32(p->uniformBlock, strlen(p->uniformBlock));
+}
 
 void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_DrawCommand *cmd)
 {
@@ -206,11 +219,14 @@ void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_DrawCom
     /* SHADER */
     LR_Shader *shader = LR_ShaderCollection_GetShader(ctx, mat->pimpl->shaders, decl, 0);
     INT_LR_Material_ *p = mat->pimpl;
+    if(p->uniformBlock) {
+        LR_Shader_SetUniformBlock(ctx, shader, p->uniformBlockHash, p->uniformBlock);
+    }
     /* do samplers */
     for(int i = 0; i < LR_MAX_SAMPLERS; i++) {
         if(p->samplers[i].texture) {
             /* LR_Shader caches this, usually no-op */
-            LR_Shader_SetSamplerIndex(ctx, shader, p->samplers[i].name, (i + 1));
+            LR_Shader_SetSamplerIndex(ctx, shader, p->samplers[i].name, p->samplers[i].hash, (i + 1));
             /* Check texture is loaded */
             if(LR_Texture_EnsureLoaded(ctx, p->samplers[i].texture)) {
                 //bind tex
@@ -243,6 +259,10 @@ void LR_Material_Prepare(LR_Context *ctx, LR_VertexDeclaration* decl, LR_DrawCom
         }
         /* transform */
         LR_Shader_SetTransform(ctx, shader, cmd->g.transform);
+        /* ubo */
+        if(cmd->g.uboBinding.buffer) {
+            LR_BindUniformBuffer(ctx, &cmd->g.uboBinding);
+        }
     }
     /* use program */
     LR_BindProgram(ctx, shader->programID);

@@ -5,6 +5,7 @@
 #include "lr_fnv1a.h"
 #include "lr_dynamicdraw.h"
 #include "lr_rendertarget.h"
+#include "lr_ubo.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -59,6 +60,23 @@ void LR_GLCheckError(LR_Context *ctx, const char *loc)
     if(err != GL_NO_ERROR) {
         snprintf(emsg, 512, "GL Error %s (0x%x) - %s", GL_ErrorString(err), err, loc);
         LR_CriticalErrorFunc(ctx, emsg);
+    }
+}
+
+void LR_BindUniformBuffer(LR_Context *ctx, LR_UniformBufferBinding *binding)
+{
+    if(!binding || !binding->buffer) return;
+    if(binding->buffer != ctx->bound_ubo.buffer ||
+        binding->start != ctx->bound_ubo.start ||
+        binding->count != ctx->bound_ubo.count) {
+            
+            ctx->bound_ubo = *binding;
+        GL_CHECK(ctx, glBindBufferRange(
+            GL_UNIFORM_BUFFER, 1, 
+            binding->buffer->gl,
+            binding->start * binding->buffer->stride,
+            binding->count * binding->buffer->stride
+        ));
     }
 }
 
@@ -130,6 +148,7 @@ LREXPORT LR_Context *LR_Init(int gles)
     ctx->cullMode = LRCULL_CCW;
     ctx->depthWrite = 1;
     glGetIntegerv(GL_MAX_SAMPLES, &ctx->maxSamples);
+    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &ctx->uboOffsetAlign);
     LRVEC_INIT(&ctx->commands, LR_DrawCommand, LR_INITIAL_CAPACITY);
     LRVEC_INIT(&ctx->transforms, LR_Matrix4x4, LR_INITIAL_TRANSFORM_CAPACITY);
     LRVEC_INIT(&ctx->tempMaterials, LR_Handle, 16);
@@ -540,6 +559,7 @@ LREXPORT void LR_Draw(
     LR_Context *ctx,
     LR_Handle material,
     LR_Geometry *geometry,
+    LR_UniformBufferBinding *ubo,
     LR_Handle transform,
     LR_Handle lighting,
     LRPRIMTYPE primitive,
@@ -560,6 +580,10 @@ LREXPORT void LR_Draw(
         uint32_t revZ = 0x7FFFFFFF - (LR_F32ToUI32(zval) >> 1);
         key = (1ULL << 63) | (uint64_t)(material << 31) | revZ;
     }
+    LR_UniformBufferBinding nullBinding = { .buffer = NULL };
+    if(ubo && ubo->buffer) {
+        LR_AssertTrue(ctx, LR_UniformBuffer_AlignIndex(ctx, ubo->buffer, ubo->start) == ubo->start);
+    }
     LR_DrawCommand command = {
         .key = key,
         .geometry = geometry,
@@ -570,7 +594,8 @@ LREXPORT void LR_Draw(
             .primitive = primitive,
             .baseVertex = baseVertex,
             .startIndex = startIndex,
-            .countIndex = indexCount
+            .countIndex = indexCount,
+            .uboBinding = ubo ? *ubo : nullBinding
         }
     };
     LR_AddCommand(ctx, &command);

@@ -190,7 +190,14 @@ static LR_Texture *LoadFileDDS(const char *path)
     return tx;
 }
 
+typedef struct {
+    float eee;
+    float pad2; //must be 16 bytes
+    float pad3;
+    float pad4;
+} BubbleParams;
 
+LR_UniformBuffer *ubo;
 
 static void Sample_Init()
 {
@@ -279,6 +286,13 @@ static void Sample_Init()
 
     billboards = LR_DynamicDraw_Create(lrctx, bdecl, billboardMaterial, 4, 6, idxTemplate);
     LR_DynamicDraw_SetSamplerIndex(lrctx, billboards, 1);
+
+    ubo = LR_UniformBuffer_Create(lrctx, 1, sizeof(BubbleParams));
+    BubbleParams o = {
+        .eee = 0.75f
+    };
+    LR_UniformBuffer_SetData(lrctx, ubo, &o, sizeof(BubbleParams), 0, 1);
+    LR_Material_SetUniformBlock(lrctx, mat, "Bubble");
 }
 
 #define DEG_TO_RAD(x) ((x) * M_PI / 180.0)
@@ -290,6 +304,8 @@ typedef struct {
     float width; float height; float rot;
     float u; float v; uint32_t color;
 } BillboardVertex;
+
+
 
 
 static void AddBillboard(vec3 center, float rotate, uint32_t color)
@@ -365,10 +381,19 @@ static void Sample_Loop()
     //rt
     LR_2D_DrawImage(lrctx, LR_RenderTarget_GetTexture(lrctx, rt), 400, 300, 0, 0, 0xFFFFFFFF);
     /* draw 3d */
+    BubbleParams p = { 
+        .eee = t
+    };
+    LR_UniformBuffer_SetData(lrctx, ubo, &p, sizeof(BubbleParams), 0, 1);
+    LR_UniformBufferBinding monkeyBinding = {
+        .buffer = ubo,
+        .start = 0,
+        .count = 1
+    };
     LR_Handle transform = LR_AllocTransform(lrctx, (LR_Matrix4x4*)world, (LR_Matrix4x4*)normal);
     ltMonkey.lightEnabled = ltToggle ? 1.0 : 0.0;
     LR_Handle lighting = LR_SetLights(lrctx, &ltMonkey, ltToggle ? sizeof(Lighting) : sizeof(float));
-    LR_Draw(lrctx, mat, geom, transform, lighting, LRPRIMTYPE_TRIANGLELIST, 0, baseVertex, startIndex, suzanneIndexCount);
+    LR_Draw(lrctx, mat, geom, &monkeyBinding, transform, lighting, LRPRIMTYPE_TRIANGLELIST, 0, baseVertex, startIndex, suzanneIndexCount);
 
     vec3 pos = { 3, 0, -2 };
     AddBillboard(pos, sin(t), LR_RGBA(0xFF,0xFF,0x00,0xBA));

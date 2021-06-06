@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+
 static void PrintInfoLog(LR_Context *ctx, GLuint obj, void (APIENTRYP infolog)(GLuint, GLsizei, GLsizei*,GLchar*)) 
 {
     char buffer[2048];
@@ -78,6 +79,7 @@ LREXPORT LR_Shader *LR_Shader_Create(LR_Context *ctx, const char *vertex_source,
     //init samplers
     for(int i = 0; i < LR_MAX_SAMPLERS; i++) {
         sh->samplerLocations[i] = -2;
+        sh->samplerHashes[i] = 0;
     }
     //matrix uniforms
     sh->posView = glGetUniformLocation(sh->programID, "View");
@@ -96,13 +98,19 @@ void LR_Shader_ResetSamplers(LR_Context *ctx, LR_Shader *shader)
 {
     for(int i = 0; i < LR_MAX_SAMPLERS; i++) {
         shader->samplerLocations[i] = -2;
+        shader->samplerHashes[i] = 0;
     }
 }
 
-void LR_Shader_SetSamplerIndex(LR_Context *ctx, LR_Shader *shader, const char *sampler, int index)
+void LR_Shader_SetSamplerIndex(LR_Context *ctx, LR_Shader *shader, const char *sampler, int hash, int index)
 {
-    if(shader->samplerLocations[(index - 1)] == -2) {
-        GLint loc = glGetUniformLocation(shader->programID, sampler);
+    if(shader->samplerHashes[(index - 1)] != hash) {
+        GLint loc = shader->samplerLocations[(index - 1)];
+        if(loc == -2) {
+            loc = glGetUniformLocation(shader->programID, sampler);
+            shader->samplerLocations[(index - 1)] =  loc;
+        }
+        shader->samplerHashes[(index - 1)] = hash;
         if(loc != -1) {
             LR_BindProgram(ctx, shader->programID);
             GL_CHECK(ctx, glUniform1i(loc, index));
@@ -223,6 +231,16 @@ void LR_Shader_SetLighting(LR_Context *ctx, LR_Shader *sh, int hash, void *data,
     sh->size_Lighting = size;
     LR_BindProgram(ctx, sh->programID);
     glUniform4fv(sh->pos_Lighting, (size / 16), (GLfloat*)data);
+}
+
+void LR_Shader_SetUniformBlock(LR_Context *ctx, LR_Shader *sh, int hash, const char *name)
+{
+    if(sh->currentUniformBlock == hash) return;
+    sh->currentUniformBlock = hash;
+    GLuint index = glGetUniformBlockIndex(sh->programID, name);
+    if(index != GL_INVALID_INDEX) {
+        glUniformBlockBinding(sh->programID, index, 1);
+    }
 }
 
 LREXPORT void LR_ShaderCollection_Destroy(LR_Context *ctx, LR_ShaderCollection *col)

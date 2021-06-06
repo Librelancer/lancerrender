@@ -25,8 +25,7 @@ typedef struct {
     uint64_t lightingHash;
     LR_Handle lighting; 
     LR_Handle objectData;
-    LR_Handle uniformBuffer; 
-    LR_Handle uniformBufferOffset;
+    LR_UniformBufferBinding uboBinding;
     LRPRIMTYPE primitive;
     int baseVertex;
     int startIndex;
@@ -70,6 +69,7 @@ struct LR_Context {
     int anisotropy;
     int maxAnisotropy;
     int maxSamples;
+    int uboOffsetAlign;
     int scissorEnabled;
     LRCULL cullMode;
     int blendEnabled;
@@ -79,6 +79,7 @@ struct LR_Context {
     GLuint bound_vao;
     GLuint bound_textures[LR_MAX_TEXTURES];
     GLuint bound_fbo;
+    LR_UniformBufferBinding bound_ubo;
     int currentUnit;
     int depthMode;
     int depthWrite;
@@ -142,4 +143,5 @@ void LR_ReloadTex(LR_Context *ctx, LR_Texture *tex);
 void LR_SetBlendMode(LR_Context *ctx, int blendEnabled, LRBLEND srcblend, LRBLEND destblend);
 void LR_SetCull(LR_Context *ctx, LRCULL cull);
 void LR_SetDepthMode(LR_Context *ctx, int depthMode);
+void LR_BindUniformBuffer(LR_Context *ctx, LR_UniformBufferBinding *binding);
 #endif

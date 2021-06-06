@@ -13,6 +13,7 @@ uniform mat4x4 ViewProjection;
 
 void main()
 {
+
 	vec4 pos = (ViewProjection * World) * vec4(vertex_position, 1.0);
 	fragPos = (World * vec4(vertex_position, 1.0)).xyz;
 	gl_Position = pos;
@@ -42,10 +43,16 @@ layout (std140) uniform Lighting {
 	float lightZ;
 };
 
+layout (std140) uniform Bubble {
+		float eee;
+};
+
 void main()
 {
 	vec4 objColor = texture(texsampler, vec2(texcoord.x, 1.0 - texcoord.y));
 
+	objColor *= abs(sin(eee));
+	
 	vec3 litColor;
 
 	if(lightEnabled > 0.0) {
